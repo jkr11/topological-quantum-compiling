@@ -142,7 +142,7 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
       ret = [(d, 2), (5, 1)]
     else:
       return [(xi1, 1)]
-  n = xi1.norm()
+  n = xi1.norm().evaluate()
   if n % 5 == 0:
     xi2 = xi1.div_by_two_minus_tau()
     return ret.append([(RealCyclotomic10(2, -1), 1), (xi2, 1)])

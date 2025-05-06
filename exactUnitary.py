@@ -8,12 +8,10 @@ class ExactUnitary:
   def __init__(self,
                u: Cyclotomic10,
                v: Cyclotomic10,
-               k: int,
-               global_phase: int = 0):
+               k: int):
     self.u = u
     self.v = v
     self.k = k
-    self.global_phase = global_phase
     self.validate()
 
   def validate(self):
@@ -68,7 +66,7 @@ class ExactUnitary:
     u_new = self.u * omega_k
     v_new = self.v * omega_k
     new_k = (self.k + 2 * k) % 10
-    return ExactUnitary(u_new, v_new, new_k, new_k)
+    return ExactUnitary(u_new, v_new, new_k)
 
   def to_matrix(self):
     tau_val = (
@@ -150,7 +148,15 @@ if __name__ == "__main__":
   C = exact_synthesize(ExactUnitary.F()) # so there are some bugs with the complexity i am guessing, and somewhere there is a % 10 missing, but at least it returns the correct unitary
   print([b for _,b in C])
   I = ExactUnitary.I()
-  res = I
-  for i in range(len(C)):
+  res = C[0][0]
+  for i in range(1,len(C)):
     res = res * C[i][0]
   print(res == ExactUnitary.F())
+
+  CI = exact_synthesize(ExactUnitary.I())
+  print(CI)
+  print ([b for _, b in CI])
+  res = CI[0][0]
+  for i in range(len(CI)):
+    res = res * C[i][0]
+  print(res == ExactUnitary.I())
