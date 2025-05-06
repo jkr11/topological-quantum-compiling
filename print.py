@@ -1,5 +1,6 @@
 import subprocess
 from synthesis import *
+import os
 
 
 def generate_braid_tikz(operations: List[Gate]):
@@ -41,8 +42,9 @@ strand 3/.style={blue},  % You can increase strands if needed
   with open("latex/braid_diagram.tex", "w") as f:
     f.write(latex_code)
 
-  subprocess.run(["pdflatex", "latex/braid_diagram.tex"])
-
+  os.chdir("latex")
+  subprocess.run(["pdflatex", "braid_diagram.tex"])
+  os.chdir("..")
 
 operations = [Sigma2(), Sigma2(), Sigma1()]
 generate_braid_tikz(operations)
