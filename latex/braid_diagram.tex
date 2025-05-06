@@ -1,0 +1,19 @@
+
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{braids}
+\begin{document}
+\begin{center}
+\begin{tikzpicture}
+\pic[
+rotate=90,
+braid/.cd,
+every strand/.style={ultra thick},
+strand 1/.style={red},
+strand 2/.style={green},
+strand 3/.style={blue},  % You can increase strands if needed
+] {braid={s_2 s_2 s_1
+}}; 
+\end{tikzpicture}
+\end{center}
+\end{document}

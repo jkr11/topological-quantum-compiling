@@ -144,11 +144,54 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
       return [(xi1, 1)]
   n = xi1.norm().evaluate()
   if n % 5 == 0:
+    print(xi1)
     xi2 = xi1.div_by_two_minus_tau()
-    return ret.append([(RealCyclotomic10(2, -1), 1), (xi2, 1)])
+    ret.append([(RealCyclotomic10(2, -1), 1), (xi2, 1)])
+    return ret
   else:
-    return ret.append([xi1, 1])
+    ret.append([xi1, 1])
+    return ret
 
+
+def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
+  assert abs(u.norm().evaluate()) == 1
+  a, b = u.a, u.b
+  s, k = 1, 0
+  if a < 0:
+    a, b = -a, -b
+    s = -s
+
+  mu = a * b
+  while abs(mu) > 1:
+    if mu > 1:
+      a, b = b, a - b
+      k = k - 1
+    else:
+      a, b = a, a - b
+      k = k + 1
+    mu = a * b
+
+  def tau_power(n: int) -> Tuple[int, int]:
+    a, b = 1, 0
+    if n == 0:
+      return (a, b)
+    elif n > 0:
+      a, b = 0, 1
+      for _ in range(1, n):
+        a, b = b, a - b
+      return (a, b)
+    else:
+      a, b = 0, 1
+      for _ in range(-1, -n, 1):
+        a, b = b - a, a
+      return (a, b)
+  for i in range(-3,4):
+    ta,tb = tau_power(i)
+    if (a,b) == (ta,tb):
+      k += i
+      return (s,k)
+  
+  raise ValueError("Failed to find final match")
 
 if __name__ == "__main__":
   # θ between 0 and π/5
@@ -167,5 +210,13 @@ if __name__ == "__main__":
   print(f"Prec: {PREC}")
   print(f"Approx : {a + b * TAU}")
 
+  test = RealCyclotomic10(2, -1)
+  print(test.div_by_two_minus_tau())
+
   XI_Test = RealCyclotomic10(760, -780)
   print(EASY_FACTOR(XI_Test))
+
+  u = RealCyclotomic10(2, -1)  # should be τ^-1
+  s, k = UNIT_DLOG(u)
+  print(f"u = {s} * τ^{k}")  # should output -1 * τ^-1
+

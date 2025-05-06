@@ -152,11 +152,14 @@ class RealCyclotomic10:
   def norm(self) -> int:
     return (self * self.automorphism())
   
+  def conjugate(self):
+    return self.automorphism().automorphism()
+
   def div_by_two_minus_tau(self):
-    aug = RealCyclotomic10(3,1)
-    num = self * aug
+    num = self * RealCyclotomic10(2,-1).conjugate()
     if num.a % 5 != 0 or num.b % 5 != 0:
-      raise ValueError("Division not closed in Z[tau]") # TODO: handle cases correctly, this is just napkin math
+      raise ValueError("Division not closed in Z[tau]")
+    print("dividing")
     return RealCyclotomic10(num.a // 5, num.b // 5)
 
   def __add__(self, other):
@@ -169,7 +172,14 @@ class RealCyclotomic10:
     return self.a == other.a and self.b == other.b
 
   def __repr__(self):
-    return f"RealCyclotomic10({self.a}, {self.b})"
+    if self.b >= 0:
+      if self.b == 1:
+        return f"{self.a} + τ"
+      return f"{self.a} + {self.b}τ"
+    else:
+      if self.b == -1:
+        return f"{self.a} - τ"
+      return f"{self.a} - {- self.b}τ"
 
 if __name__ == "__main__":
   x = RealCyclotomic10(2,-1)
