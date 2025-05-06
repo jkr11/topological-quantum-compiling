@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from rings import *
 import cmath
 from typing import List, Tuple
@@ -114,49 +115,3 @@ class ExactUnitary:
     return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix()}"
 
 
-def exact_synthesize(
-    U: ExactUnitary
-) -> List[Tuple[ExactUnitary,
-                str]]:  #TODO: should probably be a tuple of lists
-  F = ExactUnitary.F()
-  T = ExactUnitary.T()
-  I = ExactUnitary.I()
-  g = U.gauss_complexity()
-  Ur = U
-  C = []
-  while g > 2:
-    min_complexity = math.inf
-    J = 0
-    for j in range(0, 11):
-      gg = (F * T**j * Ur).gauss_complexity()
-      if gg < min_complexity:
-        min_complexity = gg
-        J = j
-    Ur = F * T**j * Ur
-    g = Ur.gauss_complexity()
-    C.insert(0, [(F * T**(10 - J)), f"FT^{10-J}"])
-  for k in range(0, 11):
-    for j in range(0, 11):
-      t = I.omega_mul(k) * T**j
-      if k == 10 or k == 0: break
-      if j == 10 or j == 0: break
-      if t == Ur:
-        C.insert(0, [t, f"w^{k}T^{j}"])
-  return C
-
-if __name__ == "__main__": 
-  C = exact_synthesize(ExactUnitary.F()) # so there are some bugs with the complexity i am guessing, and somewhere there is a % 10 missing, but at least it returns the correct unitary
-  print([b for _,b in C])
-  I = ExactUnitary.I()
-  res = C[0][0]
-  for i in range(1,len(C)):
-    res = res * C[i][0]
-  print(res == ExactUnitary.F())
-
-  CI = exact_synthesize(ExactUnitary.I())
-  print(CI)
-  print ([b for _, b in CI])
-  res = CI[0][0]
-  for i in range(len(CI)):
-    res = res * C[i][0]
-  print(res == ExactUnitary.I())
