@@ -126,37 +126,39 @@ class Cyclotomic10:
 TAU = (math.sqrt(5) - 1) / 2
 PHI = TAU + 1
 
+
 class RealCyclotomic10:
 
-  def __init__(self, a : int, b : int):
+  def __init__(self, a: int, b: int):
     self.a = a
     self.b = b
 
   def __mul__(self, other):
-    a = self.a
-    b = self.b
-    c = other.a
-    d = other.b
-    new_a = a * c + b * d
-    new_b = a * d + b * c - b * d
-    return RealCyclotomic10(new_a, new_b)
+    # (a + bτ)(c + dτ) = (ac + bd) + (ad + bc - bd)τ
+    a, b = self.a, self.b
+    c, d = other.a, other.b
+
+    real_part = a * c + b * d
+    tau_part = a * d + b * c - b * d
+
+    return RealCyclotomic10(real_part, tau_part)
 
   def evaluate(self):
-    phi_conjugate = (math.sqrt(5) - 1) / 2  
+    phi_conjugate = (math.sqrt(5) - 1) / 2
     return self.a + self.b * phi_conjugate
-  
+
   def automorphism(self):
     """applies the automorphism w -> w^3 to 'self', on tau = w^2 - w^3. aut(tau) = -\phi, where phi = 1 + tau. Thus aut(a + btau) = a - (1 + tau)b"""
     return RealCyclotomic10(self.a - self.b, -self.b)
-  
+
   def norm(self) -> int:
     return (self * self.automorphism())
-  
+
   def conjugate(self):
     return self.automorphism().automorphism()
 
   def div_by_two_minus_tau(self):
-    num = self * RealCyclotomic10(2,-1).conjugate()
+    num = self * RealCyclotomic10(2, -1)
     if num.a % 5 != 0 or num.b % 5 != 0:
       raise ValueError("Division not closed in Z[tau]")
     print("dividing")
@@ -181,7 +183,8 @@ class RealCyclotomic10:
         return f"{self.a} - τ"
       return f"{self.a} - {- self.b}τ"
 
+
 if __name__ == "__main__":
-  x = RealCyclotomic10(2,-1)
-  print(x * RealCyclotomic10(3,1))
+  x = RealCyclotomic10(2, -1)
+  print(x * RealCyclotomic10(3, 1))
   print(x.div_by_two_minus_tau())

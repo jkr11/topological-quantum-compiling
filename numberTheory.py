@@ -193,6 +193,9 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
   
   raise ValueError("Failed to find final match")
 
+def BINARY_GCD(a : Cyclotomic10, b : Cyclotomic10):
+  if a.evaluate()
+
 if __name__ == "__main__":
   # θ between 0 and π/5
   theta = math.pi / 10
