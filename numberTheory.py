@@ -49,35 +49,37 @@ def APPROX_REAL(x, n) -> Tuple[int, int]:
 
 
 # RANDOM-SAMPLE procedure
+# TODO: make this return -> Cyclotomic 10
 def RANDOM_SAMPLE(theta: float, epsilon: float, r: float):
   assert (r >= 1, f"r needs to be >= 1 but was {r}.")
-  print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
-  C = math.sqrt(PHI / (4 * r))
-  print(f"C: {C}")
-  m = math.ceil(math.log(C * epsilon * r, TAU)) + 1
-  print(f"math.log(C * epsilon * r), {math.log(C * epsilon * r, TAU)}")
-  print(f"m : {m}")
-  N = math.ceil(PHI**m)
+  #print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
+  C: float = math.sqrt(PHI / (4 * r))
+  #print(f"C: {C}")
+  m: int = math.ceil(math.log(C * epsilon * r, TAU)) + 1
+  #print(f"math.log(C * epsilon * r), {math.log(C * epsilon * r, TAU)}")
+  #print(f"m : {m}")
+  N: int = math.ceil(PHI**m)
 
-  sin_theta = math.sin(theta)
-  cos_theta = math.cos(theta)
+  sin_theta: float = math.sin(theta)
+  cos_theta: float = math.cos(theta)
 
-  sqrt_expr = math.sqrt(4 - epsilon**2)
-  ymin = r * PHI**m * (sin_theta - epsilon *
-                       (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
-  ymax = r * PHI**m * (sin_theta + epsilon *
-                       (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
+  sqrt_expr: float = math.sqrt(4 - epsilon**2)
+  ymin: float = r * PHI**m * (
+      sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
+  ymax: float = r * PHI**m * (
+      sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
 
-  xmax = r * PHI**m * ((1 - epsilon**2 / 2) * cos_theta -
-                       epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
-  xc = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
+  xmax: float = r * PHI**m * (
+      (1 - epsilon**2 / 2) * cos_theta -
+      epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
+  xc: float = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
 
   # Random sampling
-  j = random.randint(1, N - 1)
-  y = ymin + j * (ymax - ymin) / N
+  j: int = random.randint(1, N - 1)
+  y: float = ymin + j * (ymax - ymin) / N
 
   # Step 11: Approximate y'
-  y_prime = y / math.sqrt(2 - TAU)
+  y_prime: float = y / math.sqrt(2 - TAU)
   ay, by = APPROX_REAL(y_prime, m)
 
   # Step 12: x calculation
@@ -185,16 +187,108 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
       for _ in range(-1, -n, 1):
         a, b = b - a, a
       return (a, b)
-  for i in range(-3,4):
-    ta,tb = tau_power(i)
-    if (a,b) == (ta,tb):
+
+  for i in range(-3, 4):
+    ta, tb = tau_power(i)
+    if (a, b) == (ta, tb):
       k += i
-      return (s,k)
-  
+      return (s, k)
+
   raise ValueError("Failed to find final match")
 
-def BINARY_GCD(a : Cyclotomic10, b : Cyclotomic10):
-  if a.evaluate()
+
+def legendre_symbol(a: int, p: int) -> int:
+  """Compute the Legendre symbol (a | p)."""
+  return pow(a, (p - 1) // 2, p)
+
+
+def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
+  """
+  Solves for r such that r^2 = n (mod p), where p is an odd prime and n is a quadratic residue mod p.
+
+  Returns a tuple (r, p - r).
+  """
+  assert p > 2 and legendre_symbol(n, p) == 1, "n must be a quadratic residue"
+
+  # represent p-1 as q * 2 ^s with q odd
+  q: int = p - 1
+  s: int = 0
+  while q % 2 == 0:
+    q //= 2
+    s += 1
+  print(s)
+  if s == 1:
+    r: int = pow(n, ((p + 1) // 4), p)
+    return (r, p - r)
+
+  # By randomized trial, find a quadratic residue z.
+  z: int = 2
+  while (legendre_symbol(z, p) != p - 1):
+    z += 1
+
+  c: int = pow(z, q, p)
+  r: int = pow(n, (q + 1) // 2, p)
+  t: int = pow(n, q, p)
+  m: int = s
+  while t != 1:
+    i: int = 1
+    temp: int = pow(t, 2, p)
+    while temp != 1 and i < m:
+      temp = pow(temp, 2, p)
+      i += 1
+    if i == m:
+      raise ValueError("Failed to find i such that t^(2^i) ≡ 1 mod p")
+
+    exponent: int = 2**(m - i - 1)
+    b: int = pow(c, exponent, p)
+    r = (r * b) % p
+    t = (t * pow(b, 2, p)) % p
+    c = pow(b, 2, p)
+    m = i
+  return (r, p - r)
+
+
+# TODO: not sure if this works
+def splitting_root(xi: RealCyclotomic10):
+
+  def tau_norm_(s: RealCyclotomic10):
+    a, b = s.a, s.b
+    return a**2 - a * b - b**2
+
+  def _mod_inv(b: int, p: int) -> int:
+    return pow(b, -1, p)
+
+  p: int = tau_norm_(xi)
+  assert p % 2 == 1 and p % 5 == 1, "p = N_tau (xi) must be an odd prime = 1 "
+  assert xi.b % p != 0
+  b1 = _mod_inv(b, p)
+  n: int = (-a * b1 - 2) % p
+  return tonelli_shanks(n, p)
+
+
+def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
+  raise NotImplementedError
+
+  if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
+    return "Unsolved"
+  fl = EASY_FACTOR(xi)
+  if not EASY_SOLVABLE(fl):
+    return "Unsolved"
+  x: RealCyclotomic10 = RealCyclotomic10(1, 0)
+  for i in range(len(fl) - 1):
+    xii: RealCyclotomic10 = fl[i][0]
+    m: int = fl[i][1]
+    x = x * xii**(m // 2)  # TODO: implement rmul and pow for ZTAU
+    if m % 2 == 1:
+      if xii.a == 5 and xii.b == 0:
+        x = x * (RealCyclotomic10(1, 2))
+      else:
+        if xii.a == 2 and xii.b == -1:
+          x = x * Cyclotomic10(-1, 2, -1, 1)  # w + w^4
+        else:
+          M: Tuple[int, int] = splitting_root(xii)
+          # TODO: think about how to do efficient divisions
+
 
 if __name__ == "__main__":
   # θ between 0 and π/5
@@ -219,7 +313,10 @@ if __name__ == "__main__":
   XI_Test = RealCyclotomic10(760, -780)
   print(EASY_FACTOR(XI_Test))
 
-  u = RealCyclotomic10(2, -1)  # should be τ^-1
-  s, k = UNIT_DLOG(u)
-  print(f"u = {s} * τ^{k}")  # should output -1 * τ^-1
-
+  #u = RealCyclotomic10(2, -1)  # should be τ^-1
+  #s, k = UNIT_DLOG(u)
+  #print(f"u = {s} * τ^{k}")  # should output -1 * τ^-1
+  n = 10
+  p = 13
+  root1, root2 = tonelli_shanks(n, p)
+  print(f"Square roots of {n} mod {p} are {root1} and {root2}")
