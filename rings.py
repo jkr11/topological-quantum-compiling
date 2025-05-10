@@ -82,6 +82,18 @@ class Cyclotomic10:
     # return RealCyclotomic10(c0, c2)
     return product
 
+  def mod_one_plus_omega(self) -> int:
+    """
+    Compute eta mod (1 + ω) by substituting ω = -1.
+    The result is an integer (ℤ), in the range {0, ±1, ±2}.
+    """
+    c0, c1, c2, c3 = self.coeffs
+    result = c0 - c1 + c2 - c3
+    return result % 5  # modulo N(1 + ω)
+  
+  def divides_by_one_plus_omega(self) -> bool:
+    return self.mod_one_plus_omega(self) == 0
+
   def evaluate(self):
     theta = math.pi / 5  # ω = e^(πi/5)
     omega = complex(math.cos(theta), math.sin(theta))
@@ -156,6 +168,9 @@ class RealCyclotomic10:
 
   def conjugate(self):
     return self.automorphism().automorphism()
+
+  def to_cycl(self) -> Cyclotomic10:
+    return Cyclotomic10(self.a, 0, self.b, -self.b)
 
   def div_by_two_minus_tau(self):
     num = self * RealCyclotomic10(2, -1)

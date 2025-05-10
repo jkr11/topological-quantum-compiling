@@ -30,7 +30,7 @@ def extended_fib_coefficients(n):
 
 # APPROX-REAL procedure
 # TODO: make this return Z[\tau] object for consistency with paper
-def APPROX_REAL(x, n) -> Tuple[int, int]:
+def APPROX_REAL(x, n) -> RealCyclotomic10:
   PREC = TAU**(n - 1) * (1 - TAU**n)
 
   p = fibonacci(n)
@@ -45,12 +45,11 @@ def APPROX_REAL(x, n) -> Tuple[int, int]:
   b = c * u - q * round((c * u) / q)
 
   assert ((abs(x - (a + b * TAU)) <= PREC) and (abs(b) <= PHI**n))
-  return a, b
+  return RealCyclotomic10(a, b)
 
 
 # RANDOM-SAMPLE procedure
-# TODO: make this return -> Cyclotomic 10
-def RANDOM_SAMPLE(theta: float, epsilon: float, r: float):
+def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   assert (r >= 1, f"r needs to be >= 1 but was {r}.")
   #print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
   C: float = math.sqrt(PHI / (4 * r))
@@ -80,21 +79,21 @@ def RANDOM_SAMPLE(theta: float, epsilon: float, r: float):
 
   # Step 11: Approximate y'
   y_prime: float = y / math.sqrt(2 - TAU)
-  ay, by = APPROX_REAL(y_prime, m)
+  yy = APPROX_REAL(y_prime, m)
 
   # Step 12: x calculation
-  y_approx = (ay + by * TAU) * math.sqrt(2 - TAU)
+  y_approx = (yy.evaluate()) * math.sqrt(2 - TAU)
   x = xc - (y_approx - ymin) * math.tan(theta)
 
   # Step 13: Approximate x
-  ax, bx = APPROX_REAL(x, m)
-
+  xx: RealCyclotomic10 = APPROX_REAL(x, m)
+  #ax, bx = xx.a, xx.b
   # Step 14: Final return
-  part1 = ax + bx * TAU
+  part1 = xx
   print("Part 1 : {part1}")
-  part2 = (ay + by * TAU) * cmath.sqrt(TAU - 2)
+  part2 = yy * RealCyclotomic10(2, -1)
 
-  return part1 + part2
+  return (part1 + part2).to_cycl()
 
 
 def is_square(n: int) -> Union[int, None]:
@@ -261,14 +260,16 @@ def splitting_root(xi: RealCyclotomic10):
   p: int = tau_norm_(xi)
   assert p % 2 == 1 and p % 5 == 1, "p = N_tau (xi) must be an odd prime = 1 "
   assert xi.b % p != 0
-  b1 = _mod_inv(b, p)
-  n: int = (-a * b1 - 2) % p
+  b1 = _mod_inv(xi.b, p)
+  n: int = (-xi.a * b1 - 2) % p
   return tonelli_shanks(n, p)
 
 
 def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
+  """
+  Outputs x \in Z[\omega] such that |x|² = xi \in Z[\tau]
+  """
   raise NotImplementedError
-
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
     return "Unsolved"
   fl = EASY_FACTOR(xi)
@@ -301,11 +302,11 @@ if __name__ == "__main__":
 
   real_test = 3.14141414
   n = 20
-  a, b = APPROX_REAL(real_test, n)
+  c = APPROX_REAL(real_test, n)
   PREC = TAU**(n - 1) * (1 - TAU**n)
 
   print(f"Prec: {PREC}")
-  print(f"Approx : {a + b * TAU}")
+  print(f"Approx : {c.evaluate()}")
 
   test = RealCyclotomic10(2, -1)
   print(test.div_by_two_minus_tau())
