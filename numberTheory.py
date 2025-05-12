@@ -264,6 +264,16 @@ def splitting_root(xi: RealCyclotomic10):
   n: int = (-xi.a * b1 - 2) % p
   return tonelli_shanks(n, p)
 
+def binary_gcd(a : Cyclotomic10, b : Cyclotomic10):
+  raise NotImplementedError
+  if a.a == 0 and a.b == 0:
+    return b
+  elif b.a == 0 and b.b == 0:
+    return a
+  else:
+    if a.divides_by_one_plus_omega() and b.divides_by_one_plus_omega():
+      pass
+  
 
 def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   """
