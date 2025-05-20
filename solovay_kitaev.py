@@ -2,9 +2,32 @@ from dataclasses import dataclass
 import numpy as np
 from typing import List,Union,Tuple,Dict
 from enum import Enum
+import itertools
 
-type Gate = Tuple[np.ndarray, str]
 type Tensor = np.ndarray
+
+@dataclass
+class Gate:
+  tensor : Tensor
+  name : List[str]
+
+  def __matmul__(self, other):
+    return Gate(self.tensor @ other.tensor, self.name + other.name)
+  
+  def adjoint(self) -> 'Gate':
+    return Gate(self.tensor.conj().T, list(reversed(self.name)))
+
+@dataclass
+class twoQubitCircuit:
+  gates : List[Gate]
+
+  def _eval_circuit(self):
+    init = np.eye(2,dtype=complex)
+    for gate in self.gates:
+      init @ gate[0]
+    return init
+
+
 
 def hgate() -> np.ndarray:
   return (1/np.sqrt(2)) * np.array([[1, 1], [1, -1]])
@@ -53,19 +76,17 @@ ADJOINT_MAP: Dict[GateType, Dict[str, str]] = {
     }
 }
 
-@dataclass
-class Gate:
-  tensor : Tensor
-  name : List[str]
 
-  def __matmul__(self, other):
-    return Gate(self.tensor @ other.tensor, self.name + other.name)
-  
-  def adjoint(self) -> 'Gate':
-    return Gate(self.tensor.conj().T, list(reversed(self.name)))
 
 def adjoin_gates(gates: List[Gate]) -> List[Gate]:
   return [gate.adjoint() for gate in reversed(gates)]
+
+def eval_circuit(gates : List[Gate]) -> np.ndarray:
+  init = np.eye(2)
+  print(len(gates))
+  for gate in gates:
+    init = init @ gate.tensor
+  return init
 
 
 def _generate_binary_list(n : int = 13) -> List[List[int]]:
@@ -74,9 +95,34 @@ def _generate_binary_list(n : int = 13) -> List[List[int]]:
   for length in range(1, n + 1):
     binary_list.extend([list(map(int, bin(i)[2:].zfill(length))) for i in range(2 ** length)])
   return binary_list
+
+
+def generate_nary_sequences(base: int, max_len: int) -> List[List[int]]:
+  """
+  Generate all sequences of digits [0, ..., base-1] up to length `max_len`.
+  """
+  sequences = []
+  for length in range(1, max_len + 1):
+      sequences.extend(itertools.product(range(base), repeat=length))
+  return [list(seq) for seq in sequences]
   
-
-
+def _create_gate_list(gate_dict: Dict[int, Gate], max_len: int = 5) -> List[Gate]:
+  """
+  Generate all gate sequences from the provided gate_dict.
+  `gate_dict` should map integers to gates. Supports any number of gates.
+  """
+  base = len(gate_dict)
+  nary_sequences = generate_nary_sequences(base, max_len)
+  gate_list = []
+  for sequence in nary_sequences:
+      composed_gate = Gate(np.eye(2, dtype=complex), [])
+      for idx in sequence:
+          gate = gate_dict.get(idx)
+          if gate is None:
+              continue
+          composed_gate = composed_gate @ gate
+      gate_list.append(composed_gate)
+  return gate_list
 
 def _create_gate_list() -> List[Gate]:
   """Create the basic gate list by concatenating Hs and Ts."""
@@ -101,9 +147,10 @@ def trace_dist(u : Tensor, v : Tensor) -> float:
   """Compute trace distance between two 2x2 matrices."""
   return np.real(0.5 * np.trace(np.sqrt((u - v).conj().transpose() @ (u - v))))
 
+@dataclass
 class SolovayKitaev:
 
-  gate_list = List[Gate]
+  gate_list : List[Gate]
 
 
   def _to_bloch(self, u : Tensor):
@@ -148,7 +195,7 @@ class SolovayKitaev:
 
   def solovay_kitaev(self, u : Tensor, n : int) -> List[Gate]:
     assert (u.shape == (2,2))
-    self.gate_list = _create_gate_list()
+    #self.gate_list = _create_gate_list()
     output_gates : List[Gate] = []
     approx = self._sk_iter(u, output_gates, n)
     print(f"Trace distance: {trace_dist(u,approx)}")
@@ -188,7 +235,9 @@ class SolovayKitaev:
     return self.gate_list[np.argmin(distances)]
     
 
+
 if __name__ == "__main__":
   target_unit = np.array([[0,1],[1,0]])
-  sk = SolovayKitaev()
-  sk.solovay_kitaev(target_unit, 5)
+  sk = SolovayKitaev(_create_gate_list())
+  l = sk.solovay_kitaev(target_unit, 4)
+  assert(np.allclose(eval_circuit(l), target_unit))

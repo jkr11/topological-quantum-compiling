@@ -6,13 +6,10 @@ from typing import List, Tuple
 
 class ExactUnitary:
 
-  def __init__(self,
-               u: Cyclotomic10,
-               v: Cyclotomic10,
-               k: int):
-    self.u = u
-    self.v = v
-    self.k = k
+  def __init__(self, u: Cyclotomic10, v: Cyclotomic10, k: int):
+    self.u: Cyclotomic10 = u
+    self.v: Cyclotomic10 = v
+    self.k: int = k
     self.validate()
 
   def validate(self):
@@ -22,6 +19,18 @@ class ExactUnitary:
                                    norm_v_sq.evaluate())
     if left != 1:
       raise ValueError("Invalid exact unitary: |u|² + τ|v|² ≠ 1")
+
+  #@property
+  #def u(self):
+  #  return self.u
+
+  #@property
+  #def v(self):
+  #  return self.v
+
+  #@property
+  #def k(self):
+  #  return self.k
 
   @classmethod
   def T(self):
@@ -69,7 +78,14 @@ class ExactUnitary:
     new_k = (self.k + 2 * k) % 10
     return ExactUnitary(u_new, v_new, new_k)
 
-  def to_matrix(self):
+  #def to_matrix(self) -> List[List[Cyclotomic10]]:
+  #TODO: need rmul for float? since we need sqrt(tau)
+  #  return [[
+  #      self.u, self.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
+  #  ]]
+
+  @cached_property
+  def to_matrix_np(self) -> np.ndarray:
     tau_val = (
         cmath.sqrt(5) - 1
     ) / 2  # τ ≈ 0.618 less error than w^2 - w^3, generally not nice symbolically
@@ -91,9 +107,6 @@ class ExactUnitary:
 
     return np.array([[entry11, entry12], [entry21, entry22]], dtype=complex)
 
-  def to_matrix_(self):
-    pass
-
   def __pow__(self, k: int):
     if k == 0:
       return ExactUnitary.I()
@@ -111,7 +124,17 @@ class ExactUnitary:
   def gauss_complexity(self) -> int:
     return int(self.u.gauss_complexity().evaluate().real)
 
+  @classmethod
+  def from_gates_string(self, gates: List[str]):
+    unitary = self.I()
+    for g in reversed(gates):
+      if g == "T":
+        unitary = unitary * self.T()
+      elif g == "F":
+        unitary = unitary * self.F()
+      elif g == "W":
+        unitary = unitary.omega_mul(1)
+    return unitary
+
   def __repr__(self):
-    return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix()}"
-
-
+    return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix_np()}"
