@@ -3,18 +3,19 @@ import numpy as np
 import cmath
 from functools import cached_property, total_ordering
 from fractions import Fraction
+from typing import List
 
 
 #@total_ordering
 class Cyclotomic10:
 
   def __init__(self, c0, c1, c2, c3):
-    self.c0 : int = c0
-    self.c1 : int = c1
-    self.c2 : int = c2
-    self.c3 : int = c3
+    self.c0: int = c0
+    self.c1: int = c1
+    self.c2: int = c2
+    self.c3: int = c3
 
-  def coeffs(self):
+  def coeffs(self) -> List[int]:
     return [self.c0, self.c1, self.c2, self.c3]
 
   def __mul__(self, other):
@@ -50,10 +51,10 @@ class Cyclotomic10:
         return Cyclotomic10.One()
       elif self == Cyclotomic10.Omega():
         if exponent % 10 == 5:
-          return Cyclotomic10(-1, 0, 0, 0)
-        elif exponent & 10 == 0:
+          return -self.One()
+        elif exponent % 10 == 0:
           return Cyclotomic10.One()
-      result = Cyclotomic10(1, 0, 0, 0)  # Identity element (1)
+      result = self.One()
       for _ in range(exponent):
         result = result * self
       return result
@@ -62,7 +63,7 @@ class Cyclotomic10:
 
   @classmethod
   def from_int(self, other: int):
-    return Cyclotomic10(other, 0, 0, 0)
+    return self(other, 0, 0, 0)
 
   @classmethod
   def One(self):
@@ -94,11 +95,44 @@ class Cyclotomic10:
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c3, -c2 - c3, c3, c1 - c3)
 
+  def galois_automorphism(self, k: int):
+    if k == 1:
+      return self
+    elif k == 3:
+      return self.automorphism()
+    elif k == 7:
+      c0, c1, c2, c3 = self.coeffs()
+      return Cyclotomic10(c0, c3, -c1, 0) + self.from_omega_4(c2)
+    elif k == 9:
+      return self.automorphism().automorphism()
+    else:
+      raise NotImplemented
+
   def norm_squared(self):
     product = self * self.conjugate()
     c0, c1, c2, c3 = product.coeffs()
     # return RealCyclotomic10(c0, c2)
     return product
+
+  def inv(self):
+    return self.galois_automorphism(3) * self.galois_automorphism(
+        7) * self.galois_automorphism(9)
+
+  def galois_norm(self):
+    return self * self.inv()
+
+  def norm_i(self):
+    return self * self.conjugate()
+
+  def norm_tau(self):
+    return self * self.automorphism()
+
+  def N(self):
+    return self.norm_i().norm_tau()
+
+  @classmethod
+  def from_omega_4(self, k: int):
+    return self(-k, k, -k, k)
 
   def mod_one_plus_omega(self) -> int:
     """
@@ -120,6 +154,13 @@ class Cyclotomic10:
       total += self.coeffs()[i] * (omega**i)
     return total
 
+  def to_subring(self):
+    a, b, c, d = self.coeffs()
+    if b == 0 and c == -d:
+      return RealCyclotomic10(a, c)
+    else:
+      raise NotImplementedError
+
   def gauss_complexity(self):
     u1 = self.norm_squared()
     u2 = self.automorphism().norm_squared()
@@ -136,13 +177,14 @@ class Cyclotomic10:
         self.coeffs()[3] + other.coeffs()[3],
     )
 
+  def __neg__(self):
+    return self.__class__(-self.c0, -self.c1, -self.c2, -self.c3)
+
   def __sub__(self, other):
-    return Cyclotomic10(
-        self.coeffs()[0] - other.coeffs()[0],
-        self.coeffs()[1] - other.coeffs()[1],
-        self.coeffs()[2] - other.coeffs()[2],
-        self.coeffs()[3] - other.coeffs()[3],
-    )
+    if isinstance(other, self.__class__):
+      return self + (-other)
+    elif isinstance(other, int):
+      return self + (-self.__class__.from_int(other))
 
   def __str__(self):
     labels = ["", "ω", "ω²", "ω³"]
@@ -190,6 +232,12 @@ class RealCyclotomic10:
   def to_cycl(self) -> Cyclotomic10:
     return Cyclotomic10(self.a, 0, self.b, -self.b)
 
+  def to_int(self) -> int:
+    if self.b == 0:
+      return self.a
+    else:
+      raise NotImplementedError
+
   def div_by_two_minus_tau(self):
     num = self * RealCyclotomic10(2, -1)
     if num.a % 5 != 0 or num.b % 5 != 0:
@@ -217,8 +265,50 @@ class RealCyclotomic10:
       return f"{self.a} - {- self.b}τ"
 
 
+# A7
+def N_tau(xi: RealCyclotomic10) -> int:
+  return (xi * xi.automorphism()).to_int()
+
+
+# A8
+def N_i(eta: Cyclotomic10) -> RealCyclotomic10:
+  return (eta * eta.conjugate()).to_subring()
+
+
+# A9
+def N(eta: Cyclotomic10) -> int:
+  return N_tau(N_i(eta))
+
+# A10
+def gauss_complexity_measure(eta : Cyclotomic10) -> int:
+  return (N_i(eta) + N_i(eta).automorphism()).to_int()
+
+
 if __name__ == "__main__":
   x = RealCyclotomic10(2, -1)
   print(x * RealCyclotomic10(3, 1))
   print(x.div_by_two_minus_tau())
-  
+
+  y = Cyclotomic10(1, 1, 1, 1)
+  aut_expected = 1 + Cyclotomic10.Omega_(3).evaluate() + Cyclotomic10.Omega_(
+      6).evaluate() + Cyclotomic10.Omega_(9).evaluate()
+  print(y.automorphism().evaluate())
+  print(aut_expected)
+  aut7_expected = 1 + Cyclotomic10.Omega_(7).evaluate() + Cyclotomic10.Omega_(
+      4).evaluate() + Cyclotomic10.Omega_(1).evaluate()
+  print(aut7_expected)
+  print(y.galois_automorphism(7).evaluate())
+
+  aut9_expected = 1 + Cyclotomic10.Omega_(9).evaluate() + Cyclotomic10.Omega_(
+      8).evaluate() + Cyclotomic10.Omega_(7).evaluate()
+  print(aut9_expected)
+  print(y.automorphism().automorphism().evaluate())
+
+  print((y * y.conjugate()).to_subring())
+
+  yy = y.inv()
+  print(y.norm_squared().evaluate())
+  print(yy)
+  print(y * yy)
+  print(N(yy))
+  print(yy.galois_norm())
