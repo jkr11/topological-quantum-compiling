@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import List, Union
 import math
 from exactUnitary import *
+from numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,32 @@ def exact_synthesize(U) -> List[Gate]:
         return canonicalize_and_reduce_identities(C)
   raise ValueError("Final reduction failed")
 
+
+def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
+  C = np.sqrt(phi / 4)
+  m = math.ceil(math.log(C * eps, TAU)) + 1
+  theta = 0
+  for k in range(10):
+    theta_candidate = -phi / 2 - math.pi * (k / 5)
+    if 0 <= theta_candidate <= math.pi / 5:
+      theta = theta_candidate
+      break
+  u = 0
+  v = 0
+  found = False
+  while not found:
+    u0 = RANDOM_SAMPLE(theta, eps, 1.0)
+    xi = PHI((PHI**(2 * m)) -
+             u0.norm_squared())  # represent this as Cycl10 only PHI
+    fl = EASY_FACTOR(xi)
+    if EASY_SOLVABLE(fl):
+      found = True
+      u = Cyclotomic10.Omega_(k) * Cyclotomic10.Tau()**m * u0
+      v = Cyclotomic10.Tau()**m * solve_norm_equation(xi)
+  C = exact_synthesize(ExactUnitary(u, v, 0))
+  return C
+
+
 if __name__ == "__main__":
 
   U = ExactUnitary.F()
@@ -161,6 +188,6 @@ if __name__ == "__main__":
 
   U2 = ExactUnitary.I()
   gates = exact_synthesize(U2)
-  print(gates) 
-  red = fully_reduce_to_sigma(gates) 
+  print(gates)
+  red = fully_reduce_to_sigma(gates)
   print(red)

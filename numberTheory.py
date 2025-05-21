@@ -264,16 +264,70 @@ def splitting_root(xi: RealCyclotomic10):
   n: int = (-xi.a * b1 - 2) % p
   return tonelli_shanks(n, p)
 
-def binary_gcd(a : Cyclotomic10, b : Cyclotomic10):
-  raise NotImplementedError
-  if a.a == 0 and a.b == 0:
-    return b
-  elif b.a == 0 and b.b == 0:
-    return a
+
+def _get_unit_for_residue(r: int) -> Cyclotomic10:
+  print("Residue ", r)
+  if r == 1:
+    return Cyclotomic10(1, 0, 0, 0)
+  elif r == 4:
+    return Cyclotomic10(-1, 0, 0, 0)
+  elif r == 2:
+    return Cyclotomic10(1, 0, -1, -1)
+  elif r == 3:
+    return Cyclotomic10(1, 0, 1, 0)
   else:
-    if a.divides_by_one_plus_omega() and b.divides_by_one_plus_omega():
-      pass
-  
+    raise ValueError("Invalid residue")
+
+
+def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10],
+               b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
+  if isinstance(a, RealCyclotomic10):
+    a = a.to_cycl()
+  if isinstance(b, RealCyclotomic10):
+    b = b.to_cycl()
+  if a == Cyclotomic10.Zero():
+    return b
+  elif b == Cyclotomic10.Zero():
+    return a
+  print("A: ", a)
+  print("B: ", b)
+  a_res = a.integer_remainder_mod_one_plus_omega() % 5
+  b_res = b.integer_remainder_mod_one_plus_omega() % 5
+  print("A residue ", a_res)
+  print("B residue ", b_res)
+  if a_res == 0 and b_res == 0:
+    print("a and b are divisible by one plus omega")
+    print(f"N(a) = {N(a)}, N(b) = {N(b)}")
+    a1 = a.div_by_one_plus_omega()
+    b1 = b.div_by_one_plus_omega()
+    return (Cyclotomic10.One() + Cyclotomic10.Omega()) * binary_gcd(a1, b1)
+
+  u = v = Cyclotomic10.One()
+  if a_res != 0 and b_res != 0:
+    u = _get_unit_for_residue(a_res)
+    assert (a * u).integer_remainder_mod_one_plus_omega() % 5 == 1
+    print(a * u)
+    v = _get_unit_for_residue(b_res)
+    print("b:", b)
+    print("v:", v)
+    result = b * v
+    print("b * v:", result)
+    print("b * v mod (1 + ω):", result.integer_remainder_mod_one_plus_omega())
+
+    assert (b * v).integer_remainder_mod_one_plus_omega() % 5 == 1
+
+  if a.galois_norm() <= b.galois_norm():
+    c = a
+    difference = (u * a) - (v * b)
+  else:
+    c = b
+    difference = (v * b) - (u * a)
+
+  if difference == Cyclotomic10.Zero():
+    return c
+  print("Diff: ", difference)
+  return binary_gcd(c, difference)
+
 
 def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   """
@@ -331,3 +385,32 @@ if __name__ == "__main__":
   p = 13
   root1, root2 = tonelli_shanks(n, p)
   print(f"Square roots of {n} mod {p} are {root1} and {root2}")
+
+  print("Splitting root of (15 - 8t): ",
+        splitting_root(RealCyclotomic10(15, -8)))
+
+  x = RealCyclotomic10(15, -8).to_cycl()
+  y = Cyclotomic10(63, -1, 0, 0) + Cyclotomic10.from_omega_4(-1)
+  print("Y: ", y.integer_remainder_mod_one_plus_omega() % 5)
+  print(binary_gcd(x, y))
+
+  z = Cyclotomic10(15, 0, -8, 8)
+
+  #for i in range(10):
+  #  for j in range(10):
+  #    for k in range(10):
+  #      for l in range(10):
+  #        c = Cyclotomic10(i, j, k, l)
+  #        n = N(c)
+  #        if n == 1:
+  #          print(i, j, k, l)
+  #          print(c.divides_by_one_plus_omega())
+  #          print("Remainder: ",
+  #                (c * z).integer_remainder_mod_one_plus_omega() % 5)
+  #        c2 = -c
+  #        n = N(c)
+  #        if n == 1:
+  #          print("-", i, j, k, l)
+  #          print(c.divides_by_one_plus_omega())
+  #          print("Remainder: ",
+  #                (c2 * z).integer_remainder_mod_one_plus_omega() % 5)
