@@ -115,11 +115,16 @@ class Cyclotomic10:
     return product
 
   def inv(self):
-    return self.galois_automorphism(3) * self.galois_automorphism(
+    conjs = self.galois_automorphism(3) * self.galois_automorphism(
         7) * self.galois_automorphism(9)
+    a, b, c, d = conjs.coeffs()
+    N = self.galois_norm()
+    return Cyclotomic10(a // N, b // N, c // N, d // N)
 
-  def galois_norm(self):
-    return self * self.inv()
+  def galois_norm(self) -> int:
+    norm = self * self.galois_automorphism(3) * self.galois_automorphism(
+        7) * self.galois_automorphism(9)
+    return norm.to_subring().to_int()
 
   def norm_i(self):
     return self * self.conjugate()
@@ -130,9 +135,16 @@ class Cyclotomic10:
   def N(self):
     return self.norm_i().norm_tau()
 
+  def integer_remainder_mod_one_plus_omega(self):
+    a, b, c, d = self.coeffs()
+    return a - b + c - d
+
   @classmethod
   def from_omega_4(self, k: int):
     return self(-k, k, -k, k)
+
+  def is_unit(self):
+    return self.galois_norm() == 1
 
   def mod_one_plus_omega(self) -> int:
     """
@@ -144,7 +156,7 @@ class Cyclotomic10:
     return result % 5  # modulo N(1 + ω)
 
   def divides_by_one_plus_omega(self) -> bool:
-    return self.mod_one_plus_omega(self) == 0
+    return self.galois_norm() % 5 == 0
 
   def evaluate(self):
     theta = math.pi / 5  # ω = e^(πi/5)
@@ -159,12 +171,24 @@ class Cyclotomic10:
     if b == 0 and c == -d:
       return RealCyclotomic10(a, c)
     else:
-      raise NotImplementedError
+      raise ValueError(f"Tau is not represented in {self}")
 
   def gauss_complexity(self):
     u1 = self.norm_squared()
     u2 = self.automorphism().norm_squared()
     return u1 + u2
+
+  def div_by_one_plus_omega(self):
+    one_plus_omega = Cyclotomic10(1, 1, 0, 0)
+    if self.galois_norm() % 5 == 0:
+      a, b, c, d = self.coeffs()
+      a1 = a // 5
+      b1 = b // 5
+      c1 = c // 5
+      d1 = d // 5
+      return Cyclotomic10(a1, b1, c1, d1) * one_plus_omega.inv()
+    else:
+      raise ValueError("Norm not divable by 5")
 
   def __eq__(self, other):
     return self.coeffs() == other.coeffs()
@@ -279,8 +303,9 @@ def N_i(eta: Cyclotomic10) -> RealCyclotomic10:
 def N(eta: Cyclotomic10) -> int:
   return N_tau(N_i(eta))
 
+
 # A10
-def gauss_complexity_measure(eta : Cyclotomic10) -> int:
+def gauss_complexity_measure(eta: Cyclotomic10) -> int:
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
 
 
@@ -312,3 +337,9 @@ if __name__ == "__main__":
   print(y * yy)
   print(N(yy))
   print(yy.galois_norm())
+
+  fact = Cyclotomic10(1, 1, 0, 0)
+  print("N(1+w) =", N(fact))
+  print("(1+w)⁻¹ =", fact.inv())
+
+  print(Cyclotomic10.Omega().is_unit())
