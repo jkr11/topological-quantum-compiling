@@ -137,4 +137,4 @@ class ExactUnitary:
     return unitary
 
   def __repr__(self):
-    return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix_np()}"
+    return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix_np}"
