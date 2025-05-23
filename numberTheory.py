@@ -1,17 +1,14 @@
 import math
 import random
-from rings import *
-import cmath
+from rings import Cyclotomic10, RealCyclotomic10, N
 from typing import List, Tuple, Union
 
 SQRT_5 = math.sqrt(5)
-TAU = (
-    SQRT_5 -
-    1) / 2  # Here we use this directly, no need to factor down from the rings
+TAU = (SQRT_5 - 1) / 2  # Here we use this directly, no need to factor down from the rings
 PHI = TAU + 1
 
 
-def fibonacci(n):
+def fibonacci(n: int) -> int:
   assert n >= 0
   a, b = 0, 1
   for _ in range(n):
@@ -19,58 +16,53 @@ def fibonacci(n):
   return a
 
 
-def extended_fib_coefficients(n):
+def extended_fib_coefficients(n: int) -> Tuple[int, int]:
   assert n >= 0
   Fn = fibonacci(n)
   Fn_minus_1 = fibonacci(n - 1)
-  u = (-1)**(n + 1) * Fn
-  v = (-1)**n * Fn_minus_1
+  u = ((-1) ** (n + 1)) * Fn
+  v = (-1) ** n * Fn_minus_1
   return u, v
 
 
 # APPROX-REAL procedure
-# TODO: make this return Z[\tau] object for consistency with paper
-def APPROX_REAL(x, n) -> RealCyclotomic10:
-  PREC = TAU**(n - 1) * (1 - TAU**n)
+def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
+  PREC = TAU ** (n - 1) * (1 - TAU**n)
 
   p = fibonacci(n)
   q = fibonacci(n + 1)
-  u = (-1)**(n + 1) * p
-  v = (-1)**n * fibonacci(n - 1)
+  u = (-1) ** (n + 1) * p
+  v = (-1) ** n * fibonacci(n - 1)
 
-  assert (u * p + v * q == 1)
+  assert u * p + v * q == 1
 
   c = round(x * q)
   a = c * v + p * round((c * u) / q)
   b = c * u - q * round((c * u) / q)
 
-  assert ((abs(x - (a + b * TAU)) <= PREC) and (abs(b) <= PHI**n))
+  assert (abs(x - (a + b * TAU)) <= PREC) and (abs(b) <= PHI**n)
   return RealCyclotomic10(a, b)
 
 
 # RANDOM-SAMPLE procedure
 def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
-  assert (r >= 1, f"r needs to be >= 1 but was {r}.")
-  #print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
+  assert r >= 1, f"r needs to be >= 1 but was {r}."
+  # print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
   C: float = math.sqrt(PHI / (4 * r))
-  #print(f"C: {C}")
+  # print(f"C: {C}")
   m: int = math.ceil(math.log(C * epsilon * r, TAU)) + 1
-  #print(f"math.log(C * epsilon * r), {math.log(C * epsilon * r, TAU)}")
-  #print(f"m : {m}")
+  # print(f"math.log(C * epsilon * r), {math.log(C * epsilon * r, TAU)}")
+  # print(f"m : {m}")
   N: int = math.ceil(PHI**m)
 
   sin_theta: float = math.sin(theta)
   cos_theta: float = math.cos(theta)
 
   sqrt_expr: float = math.sqrt(4 - epsilon**2)
-  ymin: float = r * PHI**m * (
-      sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
-  ymax: float = r * PHI**m * (
-      sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
+  ymin: float = r * PHI**m * (sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
+  ymax: float = r * PHI**m * (sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
 
-  xmax: float = r * PHI**m * (
-      (1 - epsilon**2 / 2) * cos_theta -
-      epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
+  xmax: float = r * PHI**m * ((1 - epsilon**2 / 2) * cos_theta - epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
   xc: float = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
 
   # Random sampling
@@ -87,7 +79,7 @@ def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
 
   # Step 13: Approximate x
   xx: RealCyclotomic10 = APPROX_REAL(x, m)
-  #ax, bx = xx.a, xx.b
+  # ax, bx = xx.a, xx.b
   # Step 14: Final return
   part1 = xx
   print("Part 1 : {part1}")
@@ -222,7 +214,7 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
 
   # By randomized trial, find a quadratic residue z.
   z: int = 2
-  while (legendre_symbol(z, p) != p - 1):
+  while legendre_symbol(z, p) != p - 1:
     z += 1
 
   c: int = pow(z, q, p)
@@ -238,7 +230,7 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
     if i == m:
       raise ValueError("Failed to find i such that t^(2^i) ≡ 1 mod p")
 
-    exponent: int = 2**(m - i - 1)
+    exponent: int = 2 ** (m - i - 1)
     b: int = pow(c, exponent, p)
     r = (r * b) % p
     t = (t * pow(b, 2, p)) % p
@@ -249,7 +241,6 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
 
 # TODO: not sure if this works
 def splitting_root(xi: RealCyclotomic10):
-
   def tau_norm_(s: RealCyclotomic10):
     a, b = s.a, s.b
     return a**2 - a * b - b**2
@@ -279,8 +270,7 @@ def _get_unit_for_residue(r: int) -> Cyclotomic10:
     raise ValueError("Invalid residue")
 
 
-def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10],
-               b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
+def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
   if isinstance(a, RealCyclotomic10):
     a = a.to_cycl()
   if isinstance(b, RealCyclotomic10):
@@ -343,7 +333,7 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   for i in range(len(fl) - 1):
     xii: RealCyclotomic10 = fl[i][0]
     m: int = fl[i][1]
-    x = x * xii**(m // 2)  # TODO: implement rmul and pow for ZTAU
+    x = x * xii ** (m // 2)  # TODO: implement rmul and pow for ZTAU
     if m % 2 == 1:
       if xii.a == 5 and xii.b == 0:
         x = x * (RealCyclotomic10(1, 2))
@@ -367,7 +357,7 @@ if __name__ == "__main__":
   real_test = 3.14141414
   n = 20
   c = APPROX_REAL(real_test, n)
-  PREC = TAU**(n - 1) * (1 - TAU**n)
+  PREC = TAU ** (n - 1) * (1 - TAU**n)
 
   print(f"Prec: {PREC}")
   print(f"Approx : {c.evaluate()}")
@@ -378,16 +368,15 @@ if __name__ == "__main__":
   XI_Test = RealCyclotomic10(760, -780)
   print(EASY_FACTOR(XI_Test))
 
-  #u = RealCyclotomic10(2, -1)  # should be τ^-1
-  #s, k = UNIT_DLOG(u)
-  #print(f"u = {s} * τ^{k}")  # should output -1 * τ^-1
+  # u = RealCyclotomic10(2, -1)  # should be τ^-1
+  # s, k = UNIT_DLOG(u)
+  # print(f"u = {s} * τ^{k}")  # should output -1 * τ^-1
   n = 10
   p = 13
   root1, root2 = tonelli_shanks(n, p)
   print(f"Square roots of {n} mod {p} are {root1} and {root2}")
 
-  print("Splitting root of (15 - 8t): ",
-        splitting_root(RealCyclotomic10(15, -8)))
+  print("Splitting root of (15 - 8t): ", splitting_root(RealCyclotomic10(15, -8)))
 
   x = RealCyclotomic10(15, -8).to_cycl()
   y = Cyclotomic10(63, -1, 0, 0) + Cyclotomic10.from_omega_4(-1)
@@ -396,7 +385,7 @@ if __name__ == "__main__":
 
   z = Cyclotomic10(15, 0, -8, 8)
 
-  #for i in range(10):
+  # for i in range(10):
   #  for j in range(10):
   #    for k in range(10):
   #      for l in range(10):

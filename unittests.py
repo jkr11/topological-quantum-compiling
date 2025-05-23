@@ -28,7 +28,6 @@ sigma2 = Fnp @ sigma1 @ Fnp.T
 
 
 class TestExactUnitary(unittest.TestCase):
-
   @classmethod
   def setUpClass(cls):
     cls.omega = Cyclotomic10(0, 1, 0, 0)
@@ -59,12 +58,9 @@ class TestExactUnitary(unittest.TestCase):
 
   def test_global_phase(self):
     I = ExactUnitary.I()
-    self.assertTrue(
-        np.allclose(I.omega_mul(6).to_matrix_np, Nomega**6 * np.eye(2)))
+    self.assertTrue(np.allclose(I.omega_mul(6).to_matrix_np, Nomega**6 * np.eye(2)))
     T = ExactUnitary.T()
-    self.assertTrue(
-        np.allclose((I.omega_mul(6) * (T**7)).to_matrix_np,
-                    Nomega**6 * np.eye(2) @ Tnp**7))
+    self.assertTrue(np.allclose((I.omega_mul(6) * (T**7)).to_matrix_np, Nomega**6 * np.eye(2) @ Tnp**7))
 
   def test_F_squared_eq_one(self):
     tt = ExactUnitary.F()
@@ -107,25 +103,23 @@ class TestExactUnitary(unittest.TestCase):
     # Verify matrix representation ω^6 * ω^6 = ω^12 = ω^2
     omega_6 = self.omega**6
     omega_12 = (omega_6 * omega_6).evaluate()
-    omega_2 = ((self.omega)**2).evaluate()
+    omega_2 = ((self.omega) ** 2).evaluate()
     assert_almost_equal(omega_12, omega_2, decimal=6)
 
   def test_gauss_complexity(self):
     res = [
-        2, 3, 13
+      2,
+      3,
+      13,
     ]  # I think the paper is wrong here, the first one needs to be 2. There is also a different definition in the shorter version of the article
-    comp = [
-        Cyclotomic10(1, 0, 0, 0),
-        Cyclotomic10(0, 0, 1, -1),
-        Cyclotomic10(2, -1, 0, 1)
-    ]
+    comp = [Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 1, -1), Cyclotomic10(2, -1, 0, 1)]
     for i in range(0, 3):
       self.assertEqual(comp[i].gauss_complexity().evaluate().real, res[i])
 
   def test_gauss_complexity_from_FT(self):
     res = [2, 3, 13]
     for i in range(0, 3):
-      U = (self.F * self.T)**i
+      U = (self.F * self.T) ** i
       print(f"(FT)^{i} : ", U)
 
       self.assertEqual(U.gauss_complexity(), res[i], f"failed at (FT)^{i}")
@@ -137,12 +131,11 @@ class TestExactUnitary(unittest.TestCase):
     self.assertTrue(np.allclose(T2.to_matrix_np, T2np))
     self.assertTrue(np.allclose((T**7).to_matrix_np, Tnp**7))
 
-
   def test_units(self):
     x = Cyclotomic10.One() + Cyclotomic10.One()
     y = _get_unit_for_residue(2)
     print("Integer remainder: ", (x * y).integer_remainder_mod_one_plus_omega() % 5)
-    t = Cyclotomic10.from_int(-2) 
+    t = Cyclotomic10.from_int(-2)
     s = _get_unit_for_residue(3)
     print("Integer remainder for 3: ", (t * s).integer_remainder_mod_one_plus_omega() % 5)
     w = Cyclotomic10.from_int(4)
@@ -150,14 +143,13 @@ class TestExactUnitary(unittest.TestCase):
     print("Rem : ", (w * s).integer_remainder_mod_one_plus_omega() % 5)
 
   def test_division(self):
-    wpo = Cyclotomic10(1,1,0,0)
+    wpo = Cyclotomic10(1, 1, 0, 0)
     self.assertEqual(N(wpo), 5)
     wpoi = wpo.inv()
-    print("(w+1)*(w+1)^-1" , wpo * wpoi)
+    print("(w+1)*(w+1)^-1", wpo * wpoi)
     print(wpoi.galois_norm())
     print(wpo.galois_norm())
     print("Actual div: ", wpo.div_by_one_plus_omega())
-
 
   def test_braidwords(self):
     I = ExactUnitary.I()
@@ -177,12 +169,9 @@ class TestExactUnitary(unittest.TestCase):
 
     I4 = I.omega_mul(4)
     S121 = sigma1_lhs * sigma2_lhs * sigma1_lhs
-    #print("F: ", F)
-    #print("(w^4)s1s2s1: ", I4 * S121)
-    self.assertTrue(np.allclose(
-        F.to_matrix_np,
-        (I4 * S121
-         ).to_matrix_np))  # TODO there is an error here with the multiplication
+    # print("F: ", F)
+    # print("(w^4)s1s2s1: ", I4 * S121)
+    self.assertTrue(np.allclose(F.to_matrix_np, (I4 * S121).to_matrix_np))  # TODO there is an error here with the multiplication
 
 
 if __name__ == "__main__":

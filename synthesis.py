@@ -81,13 +81,11 @@ def canonicalize_and_reduce_identities(gates: List[Gate]) -> List[Gate]:
   return cleaned
 
 
-REWRITE_RULES = [([WIGate(6), TGate(7)], [Sigma1()]),
-                 ([WIGate(6), FGate(), TGate(7),
-                   FGate()], [Sigma2()]),
-                 ([FGate()], [WIGate(4),
-                              Sigma1(),
-                              Sigma2(),
-                              Sigma1()])]
+REWRITE_RULES = [
+  ([WIGate(6), TGate(7)], [Sigma1()]),
+  ([WIGate(6), FGate(), TGate(7), FGate()], [Sigma2()]),
+  ([FGate()], [WIGate(4), Sigma1(), Sigma2(), Sigma1()]),
+]
 
 
 def peephole_rewrite_to_sigma(gates: List[Gate]) -> List[Gate]:
@@ -96,7 +94,7 @@ def peephole_rewrite_to_sigma(gates: List[Gate]) -> List[Gate]:
   while i < len(gates):
     matched = False
     for pattern, replacement in REWRITE_RULES:
-      if gates[i:i + len(pattern)] == pattern:
+      if gates[i : i + len(pattern)] == pattern:
         print(pattern)
         result.extend(replacement)
         i += len(pattern)
@@ -166,19 +164,17 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   found = False
   while not found:
     u0 = RANDOM_SAMPLE(theta, eps, 1.0)
-    xi = PHI((PHI**(2 * m)) -
-             u0.norm_squared())  # represent this as Cycl10 only PHI
+    xi = PHI((PHI ** (2 * m)) - u0.norm_squared())  # represent this as Cycl10 only PHI
     fl = EASY_FACTOR(xi)
     if EASY_SOLVABLE(fl):
       found = True
-      u = Cyclotomic10.Omega_(k) * Cyclotomic10.Tau()**m * u0
-      v = Cyclotomic10.Tau()**m * solve_norm_equation(xi)
+      u = Cyclotomic10.Omega_(k) * Cyclotomic10.Tau() ** m * u0
+      v = Cyclotomic10.Tau() ** m * solve_norm_equation(xi)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
 
 
 if __name__ == "__main__":
-
   U = ExactUnitary.F()
   gates = exact_synthesize(U)
   print("FT circuit:", gates)

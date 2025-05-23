@@ -1,5 +1,6 @@
 import subprocess
-from synthesis import *
+from typing import List
+from synthesis import Gate, Sigma1, Sigma2
 import os
 
 
@@ -24,13 +25,13 @@ strand 3/.style={blue},  % You can increase strands if needed
   for operation in operations:
     if isinstance(operation, Sigma1):
       print("I")
-      braid_operations.append('s_1')
+      braid_operations.append("s_1")
     elif isinstance(operation, Sigma2):
-      braid_operations.append('s_2')
+      braid_operations.append("s_2")
     else:
       print(f"Unknown operation: {operation}")
 
-  latex_code += ' '.join(braid_operations)
+  latex_code += " ".join(braid_operations)
 
   latex_code += """
 }}; 
@@ -45,6 +46,7 @@ strand 3/.style={blue},  % You can increase strands if needed
   os.chdir("latex")
   subprocess.run(["pdflatex", "braid_diagram.tex"])
   os.chdir("..")
+
 
 operations = [Sigma2(), Sigma2(), Sigma1()]
 generate_braid_tikz(operations)

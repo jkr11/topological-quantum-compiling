@@ -6,9 +6,8 @@ from fractions import Fraction
 from typing import List
 
 
-#@total_ordering
+# @total_ordering
 class Cyclotomic10:
-
   def __init__(self, c0, c1, c2, c3):
     self.c0: int = c0
     self.c1: int = c1
@@ -20,13 +19,13 @@ class Cyclotomic10:
 
   def __mul__(self, other):
     exponents_coeffs = [
-        (1, 0, 0, 0),  # ζ^0
-        (0, 1, 0, 0),  # ζ^1
-        (0, 0, 1, 0),  # ζ^2
-        (0, 0, 0, 1),  # ζ^3
-        (-1, 1, -1, 1),  # ζ^4
-        (-1, 0, 0, 0),  # ζ^5
-        (0, -1, 0, 0),  # ζ^6
+      (1, 0, 0, 0),  # ζ^0
+      (0, 1, 0, 0),  # ζ^1
+      (0, 0, 1, 0),  # ζ^2
+      (0, 0, 0, 1),  # ζ^3
+      (-1, 1, -1, 1),  # ζ^4
+      (-1, 0, 0, 0),  # ζ^5
+      (0, -1, 0, 0),  # ζ^6
     ]
     result = [0, 0, 0, 0]
     a = self.coeffs()
@@ -83,14 +82,14 @@ class Cyclotomic10:
 
   @classmethod
   def Omega_(self, k: int):
-    return self.Omega()**k
+    return self.Omega() ** k
 
-  #@cached_property
+  # @cached_property
   def conjugate(self):
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c1, -c1, c1 - c3, -c1 - c2)
 
-  #@cached_property
+  # @cached_property
   def automorphism(self):
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c3, -c2 - c3, c3, c1 - c3)
@@ -106,7 +105,7 @@ class Cyclotomic10:
     elif k == 9:
       return self.automorphism().automorphism()
     else:
-      raise NotImplemented
+      raise NotImplementedError
 
   def norm_squared(self):
     product = self * self.conjugate()
@@ -115,15 +114,13 @@ class Cyclotomic10:
     return product
 
   def inv(self):
-    conjs = self.galois_automorphism(3) * self.galois_automorphism(
-        7) * self.galois_automorphism(9)
+    conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     a, b, c, d = conjs.coeffs()
     N = self.galois_norm()
     return Cyclotomic10(a // N, b // N, c // N, d // N)
 
   def galois_norm(self) -> int:
-    norm = self * self.galois_automorphism(3) * self.galois_automorphism(
-        7) * self.galois_automorphism(9)
+    norm = self * self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     return norm.to_subring().to_int()
 
   def norm_i(self):
@@ -195,10 +192,10 @@ class Cyclotomic10:
 
   def __add__(self, other):
     return Cyclotomic10(
-        self.coeffs()[0] + other.coeffs()[0],
-        self.coeffs()[1] + other.coeffs()[1],
-        self.coeffs()[2] + other.coeffs()[2],
-        self.coeffs()[3] + other.coeffs()[3],
+      self.coeffs()[0] + other.coeffs()[0],
+      self.coeffs()[1] + other.coeffs()[1],
+      self.coeffs()[2] + other.coeffs()[2],
+      self.coeffs()[3] + other.coeffs()[3],
     )
 
   def __neg__(self):
@@ -212,8 +209,7 @@ class Cyclotomic10:
 
   def __str__(self):
     labels = ["", "ω", "ω²", "ω³"]
-    return " + ".join(f"{c}{l}"
-                      for c, l in zip(self.coeffs(), labels) if c != 0) or "0"
+    return " + ".join(f"{c}{l}" for c, l in zip(self.coeffs(), labels) if c != 0) or "0"
 
   def __repr__(self):
     return f"Cyclotomic10{self.coeffs()}"
@@ -224,7 +220,6 @@ PHI = TAU + 1
 
 
 class RealCyclotomic10:
-
   def __init__(self, a: int, b: int):
     self.a = a
     self.b = b
@@ -248,7 +243,7 @@ class RealCyclotomic10:
     return RealCyclotomic10(self.a - self.b, -self.b)
 
   def norm(self) -> int:
-    return (self * self.automorphism())
+    return self * self.automorphism()
 
   def conjugate(self):
     return self.automorphism().automorphism()
@@ -286,7 +281,7 @@ class RealCyclotomic10:
     else:
       if self.b == -1:
         return f"{self.a} - τ"
-      return f"{self.a} - {- self.b}τ"
+      return f"{self.a} - {-self.b}τ"
 
 
 # A7
@@ -315,17 +310,14 @@ if __name__ == "__main__":
   print(x.div_by_two_minus_tau())
 
   y = Cyclotomic10(1, 1, 1, 1)
-  aut_expected = 1 + Cyclotomic10.Omega_(3).evaluate() + Cyclotomic10.Omega_(
-      6).evaluate() + Cyclotomic10.Omega_(9).evaluate()
+  aut_expected = 1 + Cyclotomic10.Omega_(3).evaluate() + Cyclotomic10.Omega_(6).evaluate() + Cyclotomic10.Omega_(9).evaluate()
   print(y.automorphism().evaluate())
   print(aut_expected)
-  aut7_expected = 1 + Cyclotomic10.Omega_(7).evaluate() + Cyclotomic10.Omega_(
-      4).evaluate() + Cyclotomic10.Omega_(1).evaluate()
+  aut7_expected = 1 + Cyclotomic10.Omega_(7).evaluate() + Cyclotomic10.Omega_(4).evaluate() + Cyclotomic10.Omega_(1).evaluate()
   print(aut7_expected)
   print(y.galois_automorphism(7).evaluate())
 
-  aut9_expected = 1 + Cyclotomic10.Omega_(9).evaluate() + Cyclotomic10.Omega_(
-      8).evaluate() + Cyclotomic10.Omega_(7).evaluate()
+  aut9_expected = 1 + Cyclotomic10.Omega_(9).evaluate() + Cyclotomic10.Omega_(8).evaluate() + Cyclotomic10.Omega_(7).evaluate()
   print(aut9_expected)
   print(y.automorphism().automorphism().evaluate())
 

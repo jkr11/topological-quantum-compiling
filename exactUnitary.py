@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from rings import *
+from rings import Cyclotomic10, PHI, np, cached_property
 import cmath
 from typing import List, Tuple
 
 
 class ExactUnitary:
-
   def __init__(self, u: Cyclotomic10, v: Cyclotomic10, k: int):
     self.u: Cyclotomic10 = u
     self.v: Cyclotomic10 = v
@@ -15,21 +14,20 @@ class ExactUnitary:
   def validate(self):
     norm_u_sq = self.u.norm_squared()
     norm_v_sq = self.v.norm_squared()
-    left = norm_u_sq.evaluate() + (Cyclotomic10.Tau().evaluate() *
-                                   norm_v_sq.evaluate())
+    left = norm_u_sq.evaluate() + (Cyclotomic10.Tau().evaluate() * norm_v_sq.evaluate())
     if left != 1:
       raise ValueError("Invalid exact unitary: |u|² + τ|v|² ≠ 1")
 
-  #@property
-  #def u(self):
+  # @property
+  # def u(self):
   #  return self.u
 
-  #@property
-  #def v(self):
+  # @property
+  # def v(self):
   #  return self.v
 
-  #@property
-  #def k(self):
+  # @property
+  # def k(self):
   #  return self.k
 
   @classmethod
@@ -52,12 +50,9 @@ class ExactUnitary:
     elif other == self.T():
       return ExactUnitary(self.u, self.v, (self.k + 1) % 10)
     elif self == self.T():
-      return ExactUnitary(other.u, other.v * Cyclotomic10.Omega(),
-                          other.k + 1 % 10)
-    u3 = self.u * other.u + self.v.conjugate() * other.v * Cyclotomic10.Tau(
-    ) * Cyclotomic10.Omega_(self.k)
-    v3 = self.v * other.u - self.u.conjugate() * other.v * Cyclotomic10.Omega_(
-        self.k)
+      return ExactUnitary(other.u, other.v * Cyclotomic10.Omega(), other.k + 1 % 10)
+    u3 = self.u * other.u + self.v.conjugate() * other.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
+    v3 = self.v * other.u - self.u.conjugate() * other.v * Cyclotomic10.Omega_(self.k)
     k = (other.k + self.k) % 10
     return ExactUnitary(u3, v3, k + 5 % 10)
 
@@ -78,22 +73,19 @@ class ExactUnitary:
     new_k = (self.k + 2 * k) % 10
     return ExactUnitary(u_new, v_new, new_k)
 
-  #def to_matrix(self) -> List[List[Cyclotomic10]]:
-  #TODO: need rmul for float? since we need sqrt(tau)
+  # def to_matrix(self) -> List[List[Cyclotomic10]]:
+  # TODO: need rmul for float? since we need sqrt(tau)
   #  return [[
   #      self.u, self.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
   #  ]]
 
   @cached_property
   def to_matrix_np(self) -> np.ndarray:
-    tau_val = (
-        cmath.sqrt(5) - 1
-    ) / 2  # τ ≈ 0.618 less error than w^2 - w^3, generally not nice symbolically
-    sqrt_tau = cmath.sqrt(
-        tau_val)  # √τ ≈ 0.786 not representable by Cyclotomic10
+    tau_val = (cmath.sqrt(5) - 1) / 2  # τ ≈ 0.618 less error than w^2 - w^3, generally not nice symbolically
+    sqrt_tau = cmath.sqrt(tau_val)  # √τ ≈ 0.786 not representable by Cyclotomic10
 
     # Compute ω^k: ω = e^(iπ/5), ω^k = e^(iπk/5) symbolically
-    omega_k = Cyclotomic10.Omega()**self.k
+    omega_k = Cyclotomic10.Omega() ** self.k
 
     u_val = self.u.evaluate()
     v_val = self.v.evaluate()
