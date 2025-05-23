@@ -119,6 +119,32 @@ class Cyclotomic10:
     N = self.galois_norm()
     return Cyclotomic10(a // N, b // N, c // N, d // N)
 
+  def pseudo_inv(self):
+    conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
+    return Cyclotomic10(*conjs.coeffs())
+
+  def galois_automorphism_product(self):
+    return self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
+
+  def __divmod__(self, other):
+    def rounddiv(x: int, y: int):
+      return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
+
+    if isinstance(other, int):
+      other = self.from_int(other)
+    elif isinstance(other, self.__class__):
+      p = self * other.galois_automorphism_product()
+
+      k = other.galois_norm()
+
+      q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
+      q = self.__class__(*q_coeffs)
+
+      r = self - other * q
+      return q, r
+    else:
+      return NotImplemented
+
   def galois_norm(self) -> int:
     norm = self * self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     return norm.to_subring().to_int()
@@ -153,7 +179,7 @@ class Cyclotomic10:
     return result % 5  # modulo N(1 + ω)
 
   def divides_by_one_plus_omega(self) -> bool:
-    return self.galois_norm() % 5 == 0
+    return self.galois_norm() % 5 == 0 and self.mod_one_plus_omega() == 0
 
   def evaluate(self):
     theta = math.pi / 5  # ω = e^(πi/5)
@@ -178,12 +204,14 @@ class Cyclotomic10:
   def div_by_one_plus_omega(self):
     one_plus_omega = Cyclotomic10(1, 1, 0, 0)
     if self.galois_norm() % 5 == 0:
-      a, b, c, d = self.coeffs()
+      inter = self * one_plus_omega.pseudo_inv()
+      print("Intermediate result in div by 1 + w: ", inter)
+      a, b, c, d = inter.coeffs()
       a1 = a // 5
       b1 = b // 5
       c1 = c // 5
       d1 = d // 5
-      return Cyclotomic10(a1, b1, c1, d1) * one_plus_omega.inv()
+      return Cyclotomic10(a1, b1, c1, d1)
     else:
       raise ValueError("Norm not divable by 5")
 
@@ -221,8 +249,8 @@ PHI = TAU + 1
 
 class RealCyclotomic10:
   def __init__(self, a: int, b: int):
-    self.a = a
-    self.b = b
+    self.a: int = a
+    self.b: int = b
 
   def __mul__(self, other):
     # (a + bτ)(c + dτ) = (ac + bd) + (ad + bc - bd)τ
@@ -248,6 +276,9 @@ class RealCyclotomic10:
   def conjugate(self):
     return self.automorphism().automorphism()
 
+  def from_int(self, n: int):
+    return RealCyclotomic10(n, 0)
+
   def to_cycl(self) -> Cyclotomic10:
     return Cyclotomic10(self.a, 0, self.b, -self.b)
 
@@ -271,6 +302,8 @@ class RealCyclotomic10:
     return RealCyclotomic10(self.a - other.a, self.b - other.b)
 
   def __eq__(self, other):
+    if isinstance(other, int):
+      return self == Cyclotomic10.from_int(other)
     return self.a == other.a and self.b == other.b
 
   def __repr__(self):
@@ -304,6 +337,35 @@ def gauss_complexity_measure(eta: Cyclotomic10) -> int:
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
 
 
+def find_unit_inverse_mod_one_plus_omega(x: Cyclotomic10) -> Cyclotomic10:
+  if x.divides_by_one_plus_omega():
+    raise ValueError("Input divisible by (1 + ω)")
+
+  xmod = x.mod_one_plus_omega()
+  inv_mod = pow(xmod, -1, 5)
+
+  # Precomputed units
+  units = [
+    Cyclotomic10.One(),
+    Cyclotomic10.Omega(),
+    Cyclotomic10.Omega() ** 2,
+    Cyclotomic10.Omega() ** 3,
+    Cyclotomic10.Omega() ** 4,
+    Cyclotomic10.Tau(),
+    Cyclotomic10.Tau() * Cyclotomic10.Omega(),
+    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 2,
+    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 3,
+    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 4,
+    # Add more units as needed
+  ]
+
+  for u in units:
+    if u.mod_one_plus_omega() == inv_mod and u.is_unit():
+      return u
+
+  raise RuntimeError(f"No unit inverse found for residue {xmod}")
+
+
 if __name__ == "__main__":
   x = RealCyclotomic10(2, -1)
   print(x * RealCyclotomic10(3, 1))
@@ -331,7 +393,32 @@ if __name__ == "__main__":
   print(yy.galois_norm())
 
   fact = Cyclotomic10(1, 1, 0, 0)
+  fact_conj = Cyclotomic10(1, -1, 0, 0)
   print("N(1+w) =", N(fact))
-  print("(1+w)⁻¹ =", fact.inv())
-
+  print("(1+w)⁻¹ =", fact.pseudo_inv())
+  conjs = fact.galois_automorphism(3) * fact.galois_automorphism(7) * fact.galois_automorphism(9)
+  print("conj * fact: ", fact * conjs)
+  print("fact.divide_by_one_plus_omega: ", fact.div_by_one_plus_omega())
+  print("(1-w).is_unit(): ", fact_conj.is_unit())
   print(Cyclotomic10.Omega().is_unit())
+  print("-1//5: ", -1 // 5)
+  test = Cyclotomic10(15, 0, -8, 8)
+  print(test.mod_one_plus_omega())
+  u = find_unit_inverse_mod_one_plus_omega(test)
+  print(u)
+  print((test * u).mod_one_plus_omega())
+  print(find_unit_inverse_mod_one_plus_omega(-Cyclotomic10.One()))
+  print(Cyclotomic10.Tau().is_unit())
+
+  a = Cyclotomic10(7, 3, -2, 1)
+  b = Cyclotomic10(2, -1, 1, 0)
+  q, r = divmod(a, b)
+  # Check: a == b*q + r
+  recomposed = b * q + r
+  assert recomposed == a, f"Failed: b*q + r = {recomposed}, expected {a}"
+  # Norm of remainder should be less than norm of divisor (heuristic)
+  norm_r = r.galois_norm()
+  norm_b = b.galois_norm()
+  assert norm_r < norm_b, f"Remainder norm {norm_r} not smaller than divisor norm {norm_b}"
+  print(f"Test passed:\n a = {a}\n b = {b}\n q = {q}\n r = {r}")
+  print(f"Norm of b: {norm_b}, Norm of r: {norm_r}")

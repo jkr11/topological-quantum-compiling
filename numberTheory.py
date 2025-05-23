@@ -1,7 +1,8 @@
 import math
 import random
-from rings import Cyclotomic10, RealCyclotomic10, N
+from rings import Cyclotomic10, RealCyclotomic10, N, find_unit_inverse_mod_one_plus_omega
 from typing import List, Tuple, Union
+from itertools import product
 
 SQRT_5 = math.sqrt(5)
 TAU = (SQRT_5 - 1) / 2  # Here we use this directly, no need to factor down from the rings
@@ -270,60 +271,90 @@ def _get_unit_for_residue(r: int) -> Cyclotomic10:
     raise ValueError("Invalid residue")
 
 
+def unit_residue(unit: Cyclotomic10) -> int:
+  a, b, c, d = unit.coeffs()
+  val = a - b + c - d
+  return val % 5
+
+
+def find_unit_for_inverse_mod_one_plus_omega(x: Cyclotomic10) -> Cyclotomic10:
+  # x is NOT divisible by (1 + ω)
+  # Find residue r mod (1 + ω)
+  x_res = x.mod_one_plus_omega()
+
+  inv = pow(x_res, -1, 5)
+
+  # Units are ω^k, k=0..9
+  units = [Cyclotomic10.Omega() ** k for k in range(10)] + [Cyclotomic10.One()]
+  # Ensure uniqueness by adding One first
+  units = list(set(units))
+
+  for u in units:
+    if unit_residue(u) == inv:
+      return u
+  raise ValueError("No matching unit found for inverse mod (1+ω)")
+
+
+def inverse_mod_one_plus_omega(v: Cyclotomic10) -> Cyclotomic10:
+  res = v.mod_one_plus_omega()
+  if res == 0:
+    raise ValueError("Element divisible by (1 + ω), no inverse mod (1 + ω)")
+
+  inv_res = pow(res, -1, 5)
+
+  u0 = Cyclotomic10.from_int(inv_res)
+
+  for k in range(10):
+    candidate = u0 * Cyclotomic10.Omega_(k)
+    if candidate.is_unit():
+      return candidate
+
+  # fallback
+  return u0
+
+
 def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
+  print("A: ", a)
+  print("B: ", b)
   if isinstance(a, RealCyclotomic10):
     a = a.to_cycl()
   if isinstance(b, RealCyclotomic10):
     b = b.to_cycl()
+
   if a == Cyclotomic10.Zero():
     return b
-  elif b == Cyclotomic10.Zero():
+  if b == Cyclotomic10.Zero():
     return a
-  print("A: ", a)
-  print("B: ", b)
-  a_res = a.integer_remainder_mod_one_plus_omega() % 5
-  b_res = b.integer_remainder_mod_one_plus_omega() % 5
-  print("A residue ", a_res)
-  print("B residue ", b_res)
-  if a_res == 0 and b_res == 0:
-    print("a and b are divisible by one plus omega")
-    print(f"N(a) = {N(a)}, N(b) = {N(b)}")
+
+  if a.divides_by_one_plus_omega() and b.divides_by_one_plus_omega():
     a1 = a.div_by_one_plus_omega()
     b1 = b.div_by_one_plus_omega()
-    return (Cyclotomic10.One() + Cyclotomic10.Omega()) * binary_gcd(a1, b1)
+    gcd_inner = binary_gcd(a1, b1)
+    one_plus_omega = Cyclotomic10(1, 1, 0, 0)
+    return one_plus_omega * gcd_inner
 
-  u = v = Cyclotomic10.One()
-  if a_res != 0 and b_res != 0:
-    u = _get_unit_for_residue(a_res)
-    assert (a * u).integer_remainder_mod_one_plus_omega() % 5 == 1
-    print(a * u)
-    v = _get_unit_for_residue(b_res)
-    print("b:", b)
-    print("v:", v)
-    result = b * v
-    print("b * v:", result)
-    print("b * v mod (1 + ω):", result.integer_remainder_mod_one_plus_omega())
+  u = inverse_mod_one_plus_omega(a) if not a.divides_by_one_plus_omega() else Cyclotomic10.One()
+  v = inverse_mod_one_plus_omega(b) if not b.divides_by_one_plus_omega() else Cyclotomic10.One()
 
-    assert (b * v).integer_remainder_mod_one_plus_omega() % 5 == 1
+  c = a if N(a) <= N(b) else b
 
-  if a.galois_norm() <= b.galois_norm():
-    c = a
-    difference = (u * a) - (v * b)
-  else:
-    c = b
-    difference = (v * b) - (u * a)
+  next_input = u * a - v * b
 
-  if difference == Cyclotomic10.Zero():
-    return c
-  print("Diff: ", difference)
-  return binary_gcd(c, difference)
+  return binary_gcd(c, next_input)
+
+
+def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
+  while b != Cyclotomic10.Zero():
+    q, r = divmod(a, b)
+    assert a == b * q + r, f"Verification failed: a = {a}, b*q + r = {b * q + r}"
+    a, b = b, r
+  return a
 
 
 def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   """
   Outputs x \in Z[\omega] such that |x|² = xi \in Z[\tau]
   """
-  raise NotImplementedError
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
     return "Unsolved"
   fl = EASY_FACTOR(xi)
@@ -342,7 +373,11 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
           x = x * Cyclotomic10(-1, 2, -1, 1)  # w + w^4
         else:
           M: Tuple[int, int] = splitting_root(xii)
-          # TODO: think about how to do efficient divisions
+          y: Cyclotomic10 = gcd(xii, M[0] - (Cyclotomic10.Omega + Cyclotomic10.Omega_(4)))
+          u = xii * y.norm_squared().pseudo_inv()  # TODO:
+          s, m = UNIT_DLOG(u)
+          x = x * Cyclotomic10.Tau ** (m / 2) * y
+  return x
 
 
 if __name__ == "__main__":
@@ -379,11 +414,35 @@ if __name__ == "__main__":
   print("Splitting root of (15 - 8t): ", splitting_root(RealCyclotomic10(15, -8)))
 
   x = RealCyclotomic10(15, -8).to_cycl()
-  y = Cyclotomic10(63, -1, 0, 0) + Cyclotomic10.from_omega_4(-1)
-  print("Y: ", y.integer_remainder_mod_one_plus_omega() % 5)
-  print(binary_gcd(x, y))
-
+  print(x)
   z = Cyclotomic10(15, 0, -8, 8)
+  print(z)
+  part = Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)
+  print(part)
+  print(part**2)
+  print("Part^2 = 2 - tau: ", part**2 == RealCyclotomic10(2, -1).to_cycl())
+  print("2-tau: ", RealCyclotomic10(2, -1).to_cycl())
+  y = Cyclotomic10(63, 0, 0, 0) - part
+  print("Y: ", y)
+
+  q, r = divmod(x, y)
+  print("q =", q)
+  print("r =", r)
+  print("y * q + r =", y * q + r)
+  print("x =", x)
+  print("Success:", y * q + r == x)
+
+  print("Gcd: ", gcd(z, y))
+  a = Cyclotomic10(1, 0, 0, 0)
+  b = Cyclotomic10(2, 1, 0, 0)
+  import sys
+
+  sys.setrecursionlimit(20)
+  print("GCD++++++++++++++++++++++++++++")
+  gcd = gcd(a, b)
+  print("GCD:", gcd)
+
+  print(solve_norm_equation(XI_Test))
 
   # for i in range(10):
   #  for j in range(10):
