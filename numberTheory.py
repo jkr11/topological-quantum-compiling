@@ -1,6 +1,6 @@
 import math
 import random
-from rings import Cyclotomic10, RealCyclotomic10, N, find_unit_inverse_mod_one_plus_omega
+from rings import Cyclotomic10, RealCyclotomic10, N, find_unit_inverse_mod_one_plus_omega, N_tau
 from typing import List, Tuple, Union
 from itertools import product
 
@@ -99,22 +99,29 @@ def is_square(n: int) -> Union[int, None]:
 
 
 def IS_PRIME(p: int) -> bool:
-  if n < 2:
+  if p < 2:
     return False
-  for i in range(2, int(n**0.5) + 1):
-    if n % i == 0:
+  for i in range(2, int(p**0.5) + 1):
+    if p % i == 0:
       return False
   return True
 
 
 def EASY_SOLVABLE(fl: List[Tuple[RealCyclotomic10, int]]) -> bool:
   for i in range(0, len(fl)):
+    print("Fl: ", fl[i])
     xi, k = fl[i]
     if k % 2 == 1:
       if xi != RealCyclotomic10(5, 0):
-        p = xi.norm()
+        print("Xi: ", xi)
+        p: int = N_tau(xi)
+        print("P: ", p)
         r = p % 5
+        print("R: ", r)
+        print("Is prime: ", IS_PRIME(p))
+        print("R not in [0, 1]: ", r not in [0, 1])
         if not IS_PRIME(p) or r not in [0, 1]:
+          print("Not solvable")
           return False
   return True
 
@@ -126,8 +133,8 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
   a1 = a / c
   b1 = b / c
   xi1 = RealCyclotomic10(a1, b1)
-  ret = None
-  d = is_square(c)
+  ret = []
+  d: int = is_square(c)
   if d is not None:
     ret = [(d, 2)]
   else:
@@ -135,15 +142,19 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
     if d is not None:
       ret = [(d, 2), (5, 1)]
     else:
+      print("Equations is not going to be solvable")
       return [(xi1, 1)]
   n = xi1.norm().evaluate()
+  print("Xi1: ", xi1)
   if n % 5 == 0:
-    print(xi1)
     xi2 = xi1.div_by_two_minus_tau()
-    ret.append([(RealCyclotomic10(2, -1), 1), (xi2, 1)])
+    print("Xi2: ", xi2)
+    ret.append((RealCyclotomic10(2, -1), 1))
+    ret.append((xi1 - xi2, 1))  # this is not in the description, but it is in the example
     return ret
   else:
-    ret.append([xi1, 1])
+    print("Xi1: ", xi1)
+    ret.append((xi1, 1))
     return ret
 
 
@@ -257,60 +268,17 @@ def splitting_root(xi: RealCyclotomic10):
   return tonelli_shanks(n, p)
 
 
-def _get_unit_for_residue(r: int) -> Cyclotomic10:
-  print("Residue ", r)
-  if r == 1:
-    return Cyclotomic10(1, 0, 0, 0)
-  elif r == 4:
-    return Cyclotomic10(-1, 0, 0, 0)
-  elif r == 2:
-    return Cyclotomic10(1, 0, -1, -1)
-  elif r == 3:
-    return Cyclotomic10(1, 0, 1, 0)
-  else:
-    raise ValueError("Invalid residue")
-
-
-def unit_residue(unit: Cyclotomic10) -> int:
-  a, b, c, d = unit.coeffs()
-  val = a - b + c - d
-  return val % 5
-
-
-def find_unit_for_inverse_mod_one_plus_omega(x: Cyclotomic10) -> Cyclotomic10:
-  # x is NOT divisible by (1 + ω)
-  # Find residue r mod (1 + ω)
-  x_res = x.mod_one_plus_omega()
-
-  inv = pow(x_res, -1, 5)
-
-  # Units are ω^k, k=0..9
-  units = [Cyclotomic10.Omega() ** k for k in range(10)] + [Cyclotomic10.One()]
-  # Ensure uniqueness by adding One first
-  units = list(set(units))
-
-  for u in units:
-    if unit_residue(u) == inv:
-      return u
-  raise ValueError("No matching unit found for inverse mod (1+ω)")
-
-
-def inverse_mod_one_plus_omega(v: Cyclotomic10) -> Cyclotomic10:
-  res = v.mod_one_plus_omega()
-  if res == 0:
-    raise ValueError("Element divisible by (1 + ω), no inverse mod (1 + ω)")
-
-  inv_res = pow(res, -1, 5)
-
-  u0 = Cyclotomic10.from_int(inv_res)
-
-  for k in range(10):
-    candidate = u0 * Cyclotomic10.Omega_(k)
-    if candidate.is_unit():
-      return candidate
-
-  # fallback
-  return u0
+def _brute_force_unit() -> List[Cyclotomic10]:
+  """
+  Generates all units in Z[omega] of norm 1 and -1 using the Galois norm.
+  """
+  units = []
+  for a, b, c, d in product(range(-10, 11), repeat=4):
+    cyclo = Cyclotomic10(a, b, c, d)
+    norm = cyclo.galois_norm()
+    if abs(norm) == 1:  # Changed to check for both 1 and -1
+      units.append(cyclo)
+  return units
 
 
 def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
@@ -360,11 +328,13 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   fl = EASY_FACTOR(xi)
   if not EASY_SOLVABLE(fl):
     return "Unsolved"
-  x: RealCyclotomic10 = RealCyclotomic10(1, 0)
+  x: Cyclotomic10 = Cyclotomic10.One()
   for i in range(len(fl) - 1):
     xii: RealCyclotomic10 = fl[i][0]
+    if isinstance(xii, int):
+      xii = RealCyclotomic10(xii, 0)
     m: int = fl[i][1]
-    x = x * xii ** (m // 2)  # TODO: implement rmul and pow for ZTAU
+    x = (x * xii) ** (m // 2)  # TODO: implement rmul and pow for ZTAU
     if m % 2 == 1:
       if xii.a == 5 and xii.b == 0:
         x = x * (RealCyclotomic10(1, 2))
@@ -380,7 +350,29 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
   return x
 
 
-if __name__ == "__main__":
+def inverse_mod_one_plus_omega(a: Cyclotomic10) -> Cyclotomic10:
+  """
+  Finds a unit u such that u * a ≡ 1 (mod 1 + ω)
+  Returns None if no such unit exists.
+  """
+  if a.divides_by_one_plus_omega():
+    raise ValueError("Element divisible by 1 + ω has no inverse modulo 1 + ω")
+
+  # Use the brute force units to find the inverse
+  units = _brute_force_unit()
+  one_plus_omega = Cyclotomic10(1, 1, 0, 0)
+
+  # Try each unit to find one that works
+  for u in units:
+    product = u * a
+    remainder = product.integer_remainder_mod_one_plus_omega() % 5
+    if remainder == 1:
+      return u
+
+  raise ValueError(f"No unit inverse found for {a} modulo 1 + ω")
+
+
+def main2():
   # θ between 0 and π/5
   theta = math.pi / 10
   epsilon = 0.01
@@ -431,19 +423,21 @@ if __name__ == "__main__":
   print("y * q + r =", y * q + r)
   print("x =", x)
   print("Success:", y * q + r == x)
-
-  print("Gcd: ", gcd(z, y))
+  print("Units for x: ", find_unit_inverse_mod_one_plus_omega(x))
+  # exit (0)
+  # print("Gcd: ", binary_gcd(y, z))
   a = Cyclotomic10(1, 0, 0, 0)
   b = Cyclotomic10(2, 1, 0, 0)
   import sys
 
   sys.setrecursionlimit(20)
   print("GCD++++++++++++++++++++++++++++")
-  gcd = gcd(a, b)
-  print("GCD:", gcd)
-
+  g = gcd(y, z)
+  print("GCD:", g)
+  print("Is unit: ", (g // Cyclotomic10(3, 2, -7, 7)).is_unit())
   print(solve_norm_equation(XI_Test))
-
+  print("---------------------------")
+  print(EASY_SOLVABLE([(2, 2), (5, 1), (RealCyclotomic10(2, -1), 1), (RealCyclotomic10(15, -8), 1)]))
   # for i in range(10):
   #  for j in range(10):
   #    for k in range(10):
@@ -462,3 +456,13 @@ if __name__ == "__main__":
   #          print(c.divides_by_one_plus_omega())
   #          print("Remainder: ",
   #                (c2 * z).integer_remainder_mod_one_plus_omega() % 5)
+
+
+if __name__ == "__main__":
+  x = [(2, 2), (5, 1), (RealCyclotomic10(2, -1), 1), (RealCyclotomic10(15, -8), 1)]
+  xi = RealCyclotomic10(760, -780)
+  EF = EASY_FACTOR(xi)
+  print("EASY_FACTOR: ", EF)
+  print("EASY_SOLVABLE: ", EASY_SOLVABLE(EF))
+  print("Solve norm equation: ", solve_norm_equation(xi))
+

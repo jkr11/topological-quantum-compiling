@@ -18,6 +18,10 @@ class Cyclotomic10:
     return [self.c0, self.c1, self.c2, self.c3]
 
   def __mul__(self, other):
+    if isinstance(other, int):
+      return self.__mul__(Cyclotomic10.from_int(other))
+    elif isinstance(other, RealCyclotomic10):
+      return self.__mul__(other.to_cycl())
     exponents_coeffs = [
       (1, 0, 0, 0),  # ζ^0
       (0, 1, 0, 0),  # ζ^1
@@ -145,6 +149,10 @@ class Cyclotomic10:
     else:
       return NotImplemented
 
+  def __floordiv__(self, other):
+    q, _ = divmod(self, other)
+    return q
+
   def galois_norm(self) -> int:
     norm = self * self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     return norm.to_subring().to_int()
@@ -253,6 +261,8 @@ class RealCyclotomic10:
     self.b: int = b
 
   def __mul__(self, other):
+    if not isinstance(other, RealCyclotomic10):
+      other = RealCyclotomic10.from_int(other)
     # (a + bτ)(c + dτ) = (ac + bd) + (ad + bc - bd)τ
     a, b = self.a, self.b
     c, d = other.a, other.b
@@ -276,6 +286,7 @@ class RealCyclotomic10:
   def conjugate(self):
     return self.automorphism().automorphism()
 
+  @classmethod
   def from_int(self, n: int):
     return RealCyclotomic10(n, 0)
 
@@ -295,6 +306,36 @@ class RealCyclotomic10:
     print("dividing")
     return RealCyclotomic10(num.a // 5, num.b // 5)
 
+  def __rmul__(self, other):
+    """Right multiplication - allows integer * RealCyclotomic10"""
+    if isinstance(other, int):
+      return RealCyclotomic10(self.a * other, self.b * other)
+    return NotImplemented
+
+  def __pow__(self, exponent: int):
+    """Exponentiation for RealCyclotomic10 elements
+    Args:
+        exponent: Integer power to raise the element to
+    Returns:
+        RealCyclotomic10: Result of self^exponent
+    Raises:
+        TypeError: If exponent is not an integer
+    """
+    if not isinstance(exponent, int):
+      return NotImplemented
+      
+    if exponent == 0:
+      return RealCyclotomic10(1, 0)  # multiplicative identity
+      
+    if exponent < 0:
+      raise NotImplementedError("Negative powers not implemented")
+      
+    result = RealCyclotomic10(1, 0)  # start with 1
+    for _ in range(exponent):
+      result = result * self
+      
+    return result
+
   def __add__(self, other):
     return RealCyclotomic10(self.a + other.a, self.b + other.b)
 
@@ -303,7 +344,7 @@ class RealCyclotomic10:
 
   def __eq__(self, other):
     if isinstance(other, int):
-      return self == Cyclotomic10.from_int(other)
+      return self == RealCyclotomic10.from_int(other)
     return self.a == other.a and self.b == other.b
 
   def __repr__(self):
