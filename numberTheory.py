@@ -25,6 +25,7 @@ def extended_fib_coefficients(n: int) -> Tuple[int, int]:
 
 # APPROX-REAL procedure
 def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
+  print(f"APPROX_REAL with x={x}, n={n}")
   PREC = CONSTANTS.TAU ** (n - 1) * (1 - CONSTANTS.TAU**n)
 
   p = fibonacci(n)
@@ -38,7 +39,11 @@ def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
   a = c * v + p * round((c * u) / q)
   b = c * u - q * round((c * u) / q)
 
-  assert (abs(x - (a + b * CONSTANTS.TAU)) <= PREC) and (abs(b) <= CONSTANTS.PHI**n)
+  approx = a + b * CONSTANTS.TAU
+  abs_diff = abs(x - approx)
+  abs_b = abs(b)
+  phi_pow_n = CONSTANTS.PHI**n
+  assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
   return RealCyclotomic10(a, b)
 
 
@@ -82,7 +87,7 @@ def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   # ax, bx = xx.a, xx.b
   # Step 14: Final return
   part1 = xx
-  print("Part 1 : {part1}")
+  print(f"Part 1 : {part1}")
   part2 = yy * RealCyclotomic10(2, -1)
 
   return (part1 + part2).to_cycl()
@@ -108,19 +113,19 @@ def IS_PRIME(p: int) -> bool:
 
 def EASY_SOLVABLE(fl: List[Tuple[RealCyclotomic10, int]]) -> bool:
   for i in range(0, len(fl)):
-    #print("Fl: ", fl[i])
+    # print("Fl: ", fl[i])
     xi, k = fl[i]
     if k % 2 == 1:
       if xi != RealCyclotomic10(5, 0):
-        #print("Xi: ", xi)
+        # print("Xi: ", xi)
         p: int = N_tau(xi)
-        #print("P: ", p)
+        # print("P: ", p)
         r = p % 5
-        #print("R: ", r)
-        #print("Is prime: ", IS_PRIME(p))
-        #print("R not in [0, 1]: ", r not in [0, 1])
+        # print("R: ", r)
+        # print("Is prime: ", IS_PRIME(p))
+        # print("R not in [0, 1]: ", r not in [0, 1])
         if not IS_PRIME(p) or r not in [0, 1]:
-          #print("Not solvable")
+          # print("Not solvable")
           return False
   return True
 
@@ -147,15 +152,15 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
       print("Equations is not going to be solvable")
       return [(xi1, 1)]
   n = N_tau(xi1)
-  #print("Xi1: ", xi1)
+  # print("Xi1: ", xi1)
   if n % 5 == 0:
     xi2 = xi1.div_by_two_minus_tau()
-    #print("Xi2: ", xi2)
+    # print("Xi2: ", xi2)
     ret.append((RealCyclotomic10(2, -1), 1))
     ret.append((xi2, 1))  # this is not in the description, but it is in the example
     return ret
   else:
-    #print("Xi1: ", xi1)
+    # print("Xi1: ", xi1)
     ret.append((xi1, 1))
     return ret
 
@@ -218,6 +223,7 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
     case _:
       pass  # Already in correct form
   return (s, k)
+
 
 def legendre_symbol(a: int, p: int) -> int:
   """Compute the Legendre symbol (a | p)."""

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from rings import Cyclotomic10, np, cached_property, RealCyclotomic10
+from rings import Cyclotomic10, np, cached_property, RealCyclotomic10, N_i, N
 import cmath
 from typing import List, Tuple
 
@@ -12,11 +12,11 @@ class ExactUnitary:
     self.validate()
 
   def validate(self):
-    norm_u_sq = self.u.norm_squared()
-    norm_v_sq = self.v.norm_squared()
-    left = norm_u_sq.evaluate() + (Cyclotomic10.Tau().evaluate() * norm_v_sq.evaluate())
+    norm_u_sq = N_i(self.u)
+    norm_v_sq = N_i(self.v)
+    left = (norm_u_sq.to_cycl() + (Cyclotomic10.Tau() * norm_v_sq)).evaluate()
     if left != 1:
-      raise ValueError("Invalid exact unitary: |u|² + τ|v|² ≠ 1")
+      raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left}")
 
   # @property
   # def u(self):
@@ -80,7 +80,7 @@ class ExactUnitary:
   #  ]]
 
   @cached_property
-  def to_matrix_np(self) -> np.ndarray:
+  def to_numpy(self) -> np.ndarray:
     tau_val = (cmath.sqrt(5) - 1) / 2  # τ ≈ 0.618 less error than w^2 - w^3, generally not nice symbolically
     sqrt_tau = cmath.sqrt(tau_val)  # √τ ≈ 0.786 not representable by Cyclotomic10
 
@@ -129,4 +129,4 @@ class ExactUnitary:
     return unitary
 
   def __repr__(self):
-    return f"U{str(self.u), str(self.v), self.k}\n {self.to_matrix_np}"
+    return f"U{str(self.u), str(self.v), self.k}\n {self.to_numpy}"

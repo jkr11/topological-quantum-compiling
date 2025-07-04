@@ -3,7 +3,7 @@ from typing import List, Union
 import math
 from exactUnitary import *
 from numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from rings import N
+from rings import N, N_i
 from util import CONSTANTS
 
 
@@ -158,7 +158,7 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   print("C * eps: ", C * eps)
   print("log(C * eps): ", math.log(C * eps, CONSTANTS.TAU))
   m = math.ceil(math.log(C * eps, CONSTANTS.TAU)) + 1
-  print("TAU ** m:", CONSTANTS.PHI ** m)
+  print("TAU ** m:", CONSTANTS.PHI**m)
   print("m: ", m)
   theta = 0
   for k in range(10):
@@ -166,44 +166,93 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
     if 0 <= theta_candidate <= math.pi / 5:
       theta = theta_candidate
       break
+  assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
   u = 0
   v = 0
-  found = False
-  while not found:
+  not_found = True
+  while not_found:
     u0 = RANDOM_SAMPLE(theta, eps, 1.0)
     print("2 * m", 2 * m)
-    xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N(u0) ** 2)
+    xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N_i(u0))
     fl = EASY_FACTOR(xi)
     if EASY_SOLVABLE(fl):
-      found = True
-      u = Cyclotomic10.Omega_(k) * Cyclotomic10.Tau() ** m * u0
-      v = Cyclotomic10.Tau() ** m * solve_norm_equation(xi)
+      not_found = False
+      u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
+      ne = solve_norm_equation(xi)
+      v = (Cyclotomic10.Tau() ** m) * ne
+  print("u:", u)
+  print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
 
 
+def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
+  """
+  Applies a sequence of gates to the identity ExactUnitary and returns the result.
+  """
+  U = ExactUnitary.I()
+  for gate in gates:
+    if isinstance(gate, TGate):
+      U = U * ExactUnitary.T() ** gate.power
+    elif isinstance(gate, FGate):
+      U = U * ExactUnitary.F()
+    elif isinstance(gate, WIGate):
+      U = U * ExactUnitary.I().omega_mul(gate.power)
+    elif isinstance(gate, Sigma1):
+      U = U * ExactUnitary.Sigma1()
+    elif isinstance(gate, Sigma2):
+      U = U * ExactUnitary.Sigma2()
+    else:
+      raise ValueError(f"Unknown gate type: {gate}")
+  return U
+
+
+import numpy as np
+
+
+def rz(phi: float) -> np.ndarray:
+  """
+  Returns the Rz(φ) rotation as a 2x2 numpy array.
+  Rz(φ) = exp(-i φ/2 Z) = [[e^{-iφ/2}, 0], [0, e^{iφ/2}]]
+  """
+  return np.array([[np.exp(-1j * phi / 2), 0], [0, np.exp(1j * phi / 2)]], dtype=complex)
+
+
+from util import trace_norm
+
 if __name__ == "__main__":
-  #U = ExactUnitary.F()
-  #gates = exact_synthesize(U)
-  #print("FT circuit:", gates)
-  #
-  #reduced = fully_reduce_to_sigma(gates)
-  #print("σ₁σ₂ circuit:", reduced)
-  #
-  #U2 = ExactUnitary.I()
-  #gates = exact_synthesize(U2)
-  #print(gates)
-  #red = fully_reduce_to_sigma(gates)
-  #print(red)
-  #
-  print("Cycl PHI**m", (RealCyclotomic10.Phi() ** 52).evaluate())
-  print("Const PHI**m", CONSTANTS.PHI ** 52)
-  phi = math.pi / 5  # π/10 rotation
-  epsilon = 1e-1  # precision
+  U = ExactUnitary.F()
+  gates = exact_synthesize(U)
+  print("FT circuit:", gates)
+  reduced = fully_reduce_to_sigma(gates)
+  print("σ₁σ₂ circuit:", reduced)
+  U2 = ExactUnitary.I()
+  gates = exact_synthesize(U2)
+  print(gates)
+  red = fully_reduce_to_sigma(gates)
+  print(red)
+  phi = math.pi / 10  # π/10 rotation
+  epsilon = 1e-2  # precision
   z_gates = synthesize_z_rotation(phi, epsilon)
   print(f"Z-rotation circuit for φ = π/10:")
   print(f"Number of gates: {len(z_gates)}")
   print(f"Gate sequence: {z_gates}")
-  #print("Test")
-  #print("ApproxReal", RANDOM_SAMPLE(math.pi/6, 1e-5, 1.0))
-  
+  print
+  gates_seq = z_gates
+  print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
+  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
+  print("Actual z matrix:\n", rz(math.pi / 10))
+  eval_unitary = evaluate_gate_sequence(gates_seq)
+  eval_matrix = eval_unitary.to_numpy
+  actual_matrix = rz(math.pi / 10)
+  print("Evaluating gates: ", eval_unitary)
+  print("As numpy matrix:\n", eval_matrix)
+  print("Actual z matrix:\n", actual_matrix)
+  # Check if the matrices are close within a given tolerance
+  tol = 1e-5  # or whatever accuracy you want
+  norm = trace_norm(eval_matrix, actual_matrix)
+  print(f"Trace norm between evaluated and actual: {norm}")
+  if norm < tol:
+    print("PASS: The evaluated matrix is within the desired accuracy.")
+  else:
+    print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
