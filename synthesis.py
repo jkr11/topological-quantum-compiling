@@ -148,16 +148,26 @@ def exact_synthesize(U) -> List[Gate]:
           C.insert(0, TGate(j))
         if k != 0:
           C.insert(0, WIGate(k))
-        return canonicalize_and_reduce_identities(C)
+        return C
   raise ValueError("Final reduction failed")
 
 
+import mpmath
+
+
 def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
-  C = np.sqrt(CONSTANTS.PHI / 4)
+  phi = mpmath.mpf(phi)
+  eps = mpmath.mpf(eps)
+  PHI = (mpmath.sqrt(5) + 1) / 2
+  TAU = (mpmath.sqrt(5) - 1) / 2
+  C = mpmath.sqrt(PHI / 4)
+
   print("C: ", C)
   print("C * eps: ", C * eps)
   print("log(C * eps): ", math.log(C * eps, CONSTANTS.TAU))
-  m = math.ceil(math.log(C * eps, CONSTANTS.TAU)) + 1
+  # m = math.ceil(math.log(C * eps, CONSTANTS.TAU)) + 1
+  m = int(mpmath.ceil(mpmath.log(C * eps, TAU))) + 1
+
   print("TAU ** m:", CONSTANTS.PHI**m)
   print("m: ", m)
   theta = 0
@@ -172,9 +182,49 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   not_found = True
   while not_found:
     u0 = RANDOM_SAMPLE(theta, eps, 1.0)
-    print("2 * m", 2 * m)
     xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N_i(u0))
     fl = EASY_FACTOR(xi)
+    print("Factorization of xi:", fl)
+    if EASY_SOLVABLE(fl):
+      not_found = False
+      u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
+      ne = solve_norm_equation(xi)
+      v = (Cyclotomic10.Tau() ** m) * ne
+  print("u:", u)
+  print("v:", v)
+  C = exact_synthesize(ExactUnitary(u, v, 0))
+  return C
+
+
+def synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
+  """
+  approximating Rz (φ)X
+  by an 〈F, T 〉-circuit with O(log(1/ε)) gates and
+  precision at most ε. Runtime is probabilistic polynomial
+  as a function of log(1/ε).
+  """
+  phi = mpmath.mpf(phi)
+  eps = mpmath.mpf(eps)
+  PHI = (mpmath.sqrt(5) + 1) / 2
+  TAU = (mpmath.sqrt(5) - 1) / 2
+  r = mpmath.sqrt(PHI)
+  C = mpmath.sqrt(PHI / (4 * r))
+  m = int(mpmath.ceil(mpmath.log(C * eps * r, TAU))) + 1
+  theta = 0
+  for k in range(10):
+    theta_candidate = phi / 2 + math.pi / 2 - math.pi * (k / 5)
+    if 0 <= theta_candidate <= math.pi / 5:
+      theta = theta_candidate
+      break
+  assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
+  u = 0
+  v = 0
+  not_found = True
+  while not_found:
+    u0 = RANDOM_SAMPLE(theta, eps, 1.0)
+    xi = (RealCyclotomic10.Phi() ** (2 * m)) - RealCyclotomic10.Tau() * N_i(u0)
+    fl = EASY_FACTOR(xi)
+    print("Factorization of xi:", fl)
     if EASY_SOLVABLE(fl):
       not_found = False
       u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
@@ -217,42 +267,60 @@ def rz(phi: float) -> np.ndarray:
   """
   return np.array([[np.exp(-1j * phi / 2), 0], [0, np.exp(1j * phi / 2)]], dtype=complex)
 
+def X() -> np.ndarray:
+  """
+  Returns the X gate as a 2x2 numpy array.
+  X = [[0, 1], [1, 0]]
+  """
+  return np.array([[0, 1], [1, 0]], dtype=complex)
 
 from util import trace_norm
 
 if __name__ == "__main__":
-  U = ExactUnitary.F()
-  gates = exact_synthesize(U)
-  print("FT circuit:", gates)
-  reduced = fully_reduce_to_sigma(gates)
-  print("σ₁σ₂ circuit:", reduced)
-  U2 = ExactUnitary.I()
-  gates = exact_synthesize(U2)
-  print(gates)
-  red = fully_reduce_to_sigma(gates)
-  print(red)
-  phi = math.pi / 10  # π/10 rotation
-  epsilon = 1e-2  # precision
-  z_gates = synthesize_z_rotation(phi, epsilon)
-  print(f"Z-rotation circuit for φ = π/10:")
-  print(f"Number of gates: {len(z_gates)}")
-  print(f"Gate sequence: {z_gates}")
-  print
-  gates_seq = z_gates
-  print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
-  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
-  print("Actual z matrix:\n", rz(math.pi / 10))
-  eval_unitary = evaluate_gate_sequence(gates_seq)
+  # U = ExactUnitary.F()
+  # gates = exact_synthesize(U)
+  # print("FT circuit:", gates)
+  # reduced = fully_reduce_to_sigma(gates)
+  # print("σ₁σ₂ circuit:", reduced)
+  # U2 = ExactUnitary.I()
+  # gates = exact_synthesize(U2)
+  # print(gates)
+  # red = fully_reduce_to_sigma(gates)
+  # print(red)
+  # phi = 4 * math.pi / 10  # π/10 rotation
+  # epsilon = 1e-2  # precision
+  # z_gates = synthesize_z_rotation(phi, epsilon)
+  # print(f"Z-rotation circuit for φ = π/10:")
+  # print(f"Number of gates: {len(z_gates)}")
+  # print(f"Gate sequence: {z_gates}")
+  # print
+  # gates_seq = z_gates
+  # print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
+  # print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
+  # print("Actual z matrix:\n", rz(4 * math.pi / 100))
+  # eval_unitary = evaluate_gate_sequence(gates_seq)
+  # eval_matrix = eval_unitary.to_numpy
+  # actual_matrix = rz(math.pi / 10)
+  # print("Evaluating gates: ", eval_unitary)
+  # print("As numpy matrix:\n", eval_matrix)
+  # print("Actual z matrix:\n", actual_matrix)
+  # Check if the matrices are close within a given tolerance
+  # tol = 1e-5  # or whatever accuracy you want
+  # norm = trace_norm(eval_matrix, actual_matrix)
+  # print(f"Trace norm between evaluated and actual: {norm}")
+  # if norm < tol:
+  #  print("PASS: The evaluated matrix is within the desired accuracy.")
+  # else:
+  #  print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
+  input = 2 * math.pi / (4*10**3) 
+  epsilon = 1e-2
+  gates = synthesize_zx_rotation(input, epsilon)
+  print(f"ZX-rotation circuit for φ = {input}:")
+  print(f"Number of gates: {len(gates)}")
+  print(f"Gate sequence: {gates}")
+  eval_unitary = evaluate_gate_sequence(gates)
   eval_matrix = eval_unitary.to_numpy
-  actual_matrix = rz(math.pi / 10)
+  actual_matrix = rz(input) @ X()
   print("Evaluating gates: ", eval_unitary)
   print("As numpy matrix:\n", eval_matrix)
-  print("Actual z matrix:\n", actual_matrix)
-  # Check if the matrices are close within a given tolerance
-  tol = 1e-5  # or whatever accuracy you want
-  norm = trace_norm(eval_matrix, actual_matrix)
-  print(f"Trace norm between evaluated and actual: {norm}")
-  if norm < tol:
-    print("PASS: The evaluated matrix is within the desired accuracy.")
-  else:
-    print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
+  print("Actual zx matrix:\n", actual_matrix)
