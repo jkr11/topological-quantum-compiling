@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import cmath
+import mpmath
+from mpmath import mp
 from functools import cached_property, total_ordering
 from fractions import Fraction
 from typing import List, Tuple
@@ -48,7 +50,7 @@ class Cyclotomic10:
   def __rmul__(self, other):
     return self.__mul__(other)
 
-  def __pow__(self, exponent : int):
+  def __pow__(self, exponent: int):
     if not isinstance(exponent, int):
       return NotImplemented
     if exponent == 0:
@@ -190,13 +192,17 @@ class Cyclotomic10:
   def divides_by_one_plus_omega(self) -> bool:
     return self.galois_norm() % 5 == 0 and self.mod_one_plus_omega() == 0
 
+  # def evaluate(self):
+  #   theta = math.pi / 5  # ω = e^(πi/5)
+  #   omega = complex(math.cos(theta), math.sin(theta))
+  #   total = 0j
+  #   for i in range(4):
+  #     total += self.coeffs()[i] * (omega**i)
+  #   return total
+
   def evaluate(self):
-    theta = math.pi / 5  # ω = e^(πi/5)
-    omega = complex(math.cos(theta), math.sin(theta))
-    total = 0j
-    for i in range(4):
-      total += self.coeffs()[i] * (omega**i)
-    return total
+    omega = mpmath.exp(2 * mpmath.pi * 1j / 10)
+    return self.c0 + self.c1 * omega + self.c2 * omega**2 + self.c3 * omega**3
 
   def to_subring(self):
     a, b, c, d = self.coeffs()
@@ -274,8 +280,8 @@ class RealCyclotomic10:
     return RealCyclotomic10(real_part, tau_part)
 
   def evaluate(self):
-    phi_conjugate = (math.sqrt(5) - 1) / 2
-    return self.a + self.b * phi_conjugate
+    tau = mp.mpf((mp.sqrt(5) - 1) / 2)
+    return self.a + self.b * tau
 
   def automorphism(self):
     """applies the automorphism w -> w^3 to 'self', on tau = w^2 - w^3. aut(tau) = -phi, where phi = 1 + tau. Thus aut(a + btau) = a - (1 + tau)b"""
@@ -547,6 +553,3 @@ if __name__ == "__main__":
   x = RealCyclotomic10(1, 1)
   print("Testing inverse: ", x * x.inv())
   print("|w+w^4|^2 = ", N_i(Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
-  y = Cyclotomic10(3, 2, -7, 7)
-  print("abs(y)^2: ", N_i(y))
-  print("y^2 inv: ", N_i(y).inv())

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from rings import Cyclotomic10, np, cached_property, RealCyclotomic10, N_i, N
 import cmath
 from typing import List, Tuple
+import mpmath
 
 
 class ExactUnitary:
@@ -15,7 +16,7 @@ class ExactUnitary:
     norm_u_sq = N_i(self.u)
     norm_v_sq = N_i(self.v)
     left = (norm_u_sq.to_cycl() + (Cyclotomic10.Tau() * norm_v_sq)).evaluate()
-    if left != 1:
+    if mpmath.fabs(left - 1) > mpmath.mpf("1e-3"):
       raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left}")
 
   # @property
@@ -78,11 +79,12 @@ class ExactUnitary:
   #  return [[
   #      self.u, self.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
   #  ]]
+  import mpmath
 
   @cached_property
   def to_numpy(self) -> np.ndarray:
-    tau_val = (cmath.sqrt(5) - 1) / 2  # τ ≈ 0.618 less error than w^2 - w^3, generally not nice symbolically
-    sqrt_tau = cmath.sqrt(tau_val)  # √τ ≈ 0.786 not representable by Cyclotomic10
+    tau = (mpmath.sqrt(5) - 1) / 2  # τ ≈ 0.618033988749895
+    sqrt_tau = mpmath.sqrt(tau)  # √τ ≈ 0.7861513777574233
 
     # Compute ω^k: ω = e^(iπ/5), ω^k = e^(iπk/5) symbolically
     omega_k = Cyclotomic10.Omega() ** self.k
@@ -97,7 +99,7 @@ class ExactUnitary:
     entry21 = v_val * sqrt_tau
     entry22 = -u_conj_val * omega_k.evaluate()
 
-    return np.array([[entry11, entry12], [entry21, entry22]], dtype=complex)
+    return mpmath.matrix([[entry11, entry12], [entry21, entry22]], dtype=complex)
 
   def __pow__(self, k: int):
     if k == 0:
