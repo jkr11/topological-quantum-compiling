@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from rings import Cyclotomic10, PHI, np, cached_property
+from rings import Cyclotomic10, np, cached_property, RealCyclotomic10
 import cmath
 from typing import List, Tuple
 

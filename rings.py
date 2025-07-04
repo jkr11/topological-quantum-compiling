@@ -3,7 +3,7 @@ import numpy as np
 import cmath
 from functools import cached_property, total_ordering
 from fractions import Fraction
-from typing import List
+from typing import List, Tuple
 
 
 # @total_ordering
@@ -48,21 +48,22 @@ class Cyclotomic10:
   def __rmul__(self, other):
     return self.__mul__(other)
 
-  def __pow__(self, exponent):
-    if isinstance(exponent, int):
-      if self == Cyclotomic10.One():
-        return Cyclotomic10.One()
-      elif self == Cyclotomic10.Omega():
-        if exponent % 10 == 5:
-          return -self.One()
-        elif exponent % 10 == 0:
-          return Cyclotomic10.One()
+  def __pow__(self, exponent : int):
+    if not isinstance(exponent, int):
+      return NotImplemented
+    if exponent == 0:
+      return self.One()
+    if exponent > 0:
       result = self.One()
       for _ in range(exponent):
         result = result * self
       return result
-    else:
-      return NotImplemented
+    else:  # exponent < 0
+      inv = self.inv()
+      result = self.One()
+      for _ in range(-exponent):
+        result = result * inv
+      return result
 
   @classmethod
   def from_int(self, other: int):
@@ -251,8 +252,8 @@ class Cyclotomic10:
     return f"Cyclotomic10{self.coeffs()}"
 
 
-TAU = (math.sqrt(5) - 1) / 2
-PHI = TAU + 1
+# TAU = (math.sqrt(5) - 1) / 2
+# PHI = TAU + 1
 
 
 class RealCyclotomic10:
@@ -268,7 +269,7 @@ class RealCyclotomic10:
     c, d = other.a, other.b
 
     real_part = a * c + b * d
-    tau_part = a * d + b * c - b * d
+    tau_part = a * d + b * c - (b * d)
 
     return RealCyclotomic10(real_part, tau_part)
 
@@ -300,17 +301,31 @@ class RealCyclotomic10:
       raise NotImplementedError
 
   def div_by_two_minus_tau(self):
-    num = self * RealCyclotomic10(2, -1)
+    """Divide by (2-τ) using the fact that (2-τ)(3+τ) = 5"""
+    # First multiply by (3+τ)
+    num = self * RealCyclotomic10(2, -1).automorphism()  # multiply by (2+τ)
+
+    # Check if result is divisible by 5
     if num.a % 5 != 0 or num.b % 5 != 0:
-      raise ValueError("Division not closed in Z[tau]")
-    print("dividing")
+      raise ValueError(f"{self} is not divisible by (2-τ)")
+
     return RealCyclotomic10(num.a // 5, num.b // 5)
+
+  def gen_div(self, other):
+    n = N_tau(other)
+    num = self * other.automorphism()
+    if num.a % n != 0 or num.b % n != 0:
+      raise ValueError(f"{self} is not divisible by {other}")
+    return RealCyclotomic10(num.a // n, num.b // n)
+
+  def __div__(self, other):
+    return self.gen_div(other)
 
   def __rmul__(self, other):
     """Right multiplication - allows integer * RealCyclotomic10"""
     if isinstance(other, int):
       return RealCyclotomic10(self.a * other, self.b * other)
-    return NotImplemented
+    return self.__mul__(other)
 
   def __pow__(self, exponent: int):
     """Exponentiation for RealCyclotomic10 elements
@@ -323,29 +338,53 @@ class RealCyclotomic10:
     """
     if not isinstance(exponent, int):
       return NotImplemented
-      
+
     if exponent == 0:
       return RealCyclotomic10(1, 0)  # multiplicative identity
-      
+
     if exponent < 0:
       raise NotImplementedError("Negative powers not implemented")
-      
+
     result = RealCyclotomic10(1, 0)  # start with 1
     for _ in range(exponent):
       result = result * self
-      
+
     return result
 
+  def __neg__(self):
+    return RealCyclotomic10(-self.a, -self.b)
+
   def __add__(self, other):
+    if isinstance(other, int):
+      return RealCyclotomic10(self.a + other, self.b)
     return RealCyclotomic10(self.a + other.a, self.b + other.b)
 
   def __sub__(self, other):
-    return RealCyclotomic10(self.a - other.a, self.b - other.b)
+    return self.__add__(-other)
 
   def __eq__(self, other):
     if isinstance(other, int):
       return self == RealCyclotomic10.from_int(other)
     return self.a == other.a and self.b == other.b
+
+  def inv(self):
+    n = N_tau(self)
+    ns = self.conjugate()
+    if ns.a % n != 0 or ns.b % n != 0:
+      raise ValueError(f"{self} is not invertible in Z[τ]")
+    return RealCyclotomic10(ns.a // n, ns.b // n)
+
+  @classmethod
+  def One(self):
+    return RealCyclotomic10(1, 0)
+
+  @classmethod
+  def Tau(self):
+    return RealCyclotomic10(0, 1)
+
+  @classmethod
+  def Phi(self):
+    return self.Tau() + RealCyclotomic10(1, 0)
 
   def __repr__(self):
     if self.b >= 0:
@@ -356,6 +395,46 @@ class RealCyclotomic10:
       if self.b == -1:
         return f"{self.a} - τ"
       return f"{self.a} - {-self.b}τ"
+
+  def __divmod__(self, other: "RealCyclotomic10") -> Tuple["RealCyclotomic10", "RealCyclotomic10"]:
+    """
+    Implements division with remainder for Z[τ]
+    Returns (q,r) such that self = q * other + r with N(r) minimal
+    """
+
+    def rounddiv(x: int, y: int) -> int:
+      return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
+
+    if isinstance(other, int):
+      other = RealCyclotomic10(other, 0)
+
+    # Convert to Z[ω] to use conjugates
+    a_cyclo = self.to_cycl()
+    b_cyclo = other.to_cycl()
+
+    # Multiply by conjugates
+    p = a_cyclo * b_cyclo.galois_automorphism_product()
+    k = other.norm().evaluate()  # N_τ(other)
+
+    # Round coefficients
+    q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
+    q_cyclo = Cyclotomic10(*q_coeffs)
+
+    # Convert quotient back to Z[τ]
+    q = q_cyclo.to_real()
+
+    # Compute remainder
+    r = self - other * q
+
+    return q, r
+
+  def __floordiv__(self, other):
+    q, _ = divmod(self, other)
+    return q
+
+  def __mod__(self, other):
+    _, r = divmod(self, other)
+    return r
 
 
 # A7
@@ -408,9 +487,11 @@ def find_unit_inverse_mod_one_plus_omega(x: Cyclotomic10) -> Cyclotomic10:
 
 
 if __name__ == "__main__":
+  print(RealCyclotomic10(2, -1).conjugate())
+  print(RealCyclotomic10(2, -1) * RealCyclotomic10(2, -1).automorphism())
   x = RealCyclotomic10(2, -1)
-  print(x * RealCyclotomic10(3, 1))
-  print(x.div_by_two_minus_tau())
+  x = x * RealCyclotomic10(3, 1)
+  print(x.gen_div(RealCyclotomic10(2, -1)))
 
   y = Cyclotomic10(1, 1, 1, 1)
   aut_expected = 1 + Cyclotomic10.Omega_(3).evaluate() + Cyclotomic10.Omega_(6).evaluate() + Cyclotomic10.Omega_(9).evaluate()
@@ -463,3 +544,9 @@ if __name__ == "__main__":
   assert norm_r < norm_b, f"Remainder norm {norm_r} not smaller than divisor norm {norm_b}"
   print(f"Test passed:\n a = {a}\n b = {b}\n q = {q}\n r = {r}")
   print(f"Norm of b: {norm_b}, Norm of r: {norm_r}")
+  x = RealCyclotomic10(1, 1)
+  print("Testing inverse: ", x * x.inv())
+  print("|w+w^4|^2 = ", N_i(Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
+  y = Cyclotomic10(3, 2, -7, 7)
+  print("abs(y)^2: ", N_i(y))
+  print("y^2 inv: ", N_i(y).inv())

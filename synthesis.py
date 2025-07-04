@@ -3,6 +3,8 @@ from typing import List, Union
 import math
 from exactUnitary import *
 from numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
+from rings import N
+from util import CONSTANTS
 
 
 @dataclass(frozen=True)
@@ -151,8 +153,13 @@ def exact_synthesize(U) -> List[Gate]:
 
 
 def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
-  C = np.sqrt(phi / 4)
-  m = math.ceil(math.log(C * eps, TAU)) + 1
+  C = np.sqrt(CONSTANTS.PHI / 4)
+  print("C: ", C)
+  print("C * eps: ", C * eps)
+  print("log(C * eps): ", math.log(C * eps, CONSTANTS.TAU))
+  m = math.ceil(math.log(C * eps, CONSTANTS.TAU)) + 1
+  print("TAU ** m:", CONSTANTS.PHI ** m)
+  print("m: ", m)
   theta = 0
   for k in range(10):
     theta_candidate = -phi / 2 - math.pi * (k / 5)
@@ -164,7 +171,8 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   found = False
   while not found:
     u0 = RANDOM_SAMPLE(theta, eps, 1.0)
-    xi = PHI((PHI ** (2 * m)) - u0.norm_squared())  # represent this as Cycl10 only PHI
+    print("2 * m", 2 * m)
+    xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N(u0) ** 2)
     fl = EASY_FACTOR(xi)
     if EASY_SOLVABLE(fl):
       found = True
@@ -175,15 +183,27 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
 
 
 if __name__ == "__main__":
-  U = ExactUnitary.F()
-  gates = exact_synthesize(U)
-  print("FT circuit:", gates)
-
-  reduced = fully_reduce_to_sigma(gates)
-  print("σ₁σ₂ circuit:", reduced)
-
-  U2 = ExactUnitary.I()
-  gates = exact_synthesize(U2)
-  print(gates)
-  red = fully_reduce_to_sigma(gates)
-  print(red)
+  #U = ExactUnitary.F()
+  #gates = exact_synthesize(U)
+  #print("FT circuit:", gates)
+  #
+  #reduced = fully_reduce_to_sigma(gates)
+  #print("σ₁σ₂ circuit:", reduced)
+  #
+  #U2 = ExactUnitary.I()
+  #gates = exact_synthesize(U2)
+  #print(gates)
+  #red = fully_reduce_to_sigma(gates)
+  #print(red)
+  #
+  print("Cycl PHI**m", (RealCyclotomic10.Phi() ** 52).evaluate())
+  print("Const PHI**m", CONSTANTS.PHI ** 52)
+  phi = math.pi / 5  # π/10 rotation
+  epsilon = 1e-1  # precision
+  z_gates = synthesize_z_rotation(phi, epsilon)
+  print(f"Z-rotation circuit for φ = π/10:")
+  print(f"Number of gates: {len(z_gates)}")
+  print(f"Gate sequence: {z_gates}")
+  #print("Test")
+  #print("ApproxReal", RANDOM_SAMPLE(math.pi/6, 1e-5, 1.0))
+  
