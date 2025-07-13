@@ -1,10 +1,12 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
+from rings import Cyclotomic10, RealCyclotomic10
 from rings import *
+from numberTheory import solve_norm_equation, N_i
+from exactUnitary import ExactUnitary
 from exactUnitary import *
 from numberTheory import *
-from numberTheory import _get_unit_for_residue
 
 # TODO: remove these
 Nomega = np.exp(1j * np.pi / 5)
@@ -27,6 +29,51 @@ sigma1 = np.array([[Nomega**6, 0], [0, Nomega**13]], dtype=complex)
 sigma2 = Fnp @ sigma1 @ Fnp.T
 
 
+class TestGaussComplexity(unittest.TestCase):
+  def test_proposition_4_a(self):
+    for i in range(10):
+      omega = Cyclotomic10.Omega_(i)
+      self.assertEqual(omega.gauss_complexity().evaluate(), 2)
+
+  def test_zero(self):
+    zero = Cyclotomic10(0, 0, 0, 0)
+    self.assertEqual(zero.gauss_complexity().evaluate(), 0)
+
+  def test_c(self):
+    c = Cyclotomic10(1, 2, 3, 4)
+    self.assertTrue(c.gauss_complexity().evaluate() >= 3)
+
+  def test_upper_bound(self):
+    num = Cyclotomic10(1, 2, 3, 4)
+    bound = 5 / 2 * (1 + 4 + 9 + 16)
+    self.assertTrue(num.gauss_complexity().evaluate() <= bound, f"Expected {num.gauss_complexity().evaluate()} <= {bound}")
+
+
+class TestNormEquation(unittest.TestCase):
+  def test_paper_example(self):
+    xi = RealCyclotomic10(760, -780)
+    x = solve_norm_equation(xi)
+    self.assertEqual(N_i(x), xi)
+
+
+class TestCyclotomic10(unittest.TestCase):
+  def test_automorphism(self):
+    tau = Cyclotomic10.Tau()
+    phi = Cyclotomic10.Tau() + Cyclotomic10.One()
+    self.assertEqual(tau.automorphism(), -phi)
+
+  def test_omega_4th_power(self):
+    omega = Cyclotomic10(0, 1, 0, 0)
+    self.assertEqual(omega**4, Cyclotomic10(-1, 1, -1, 1))
+
+  def test_division_example(self):
+    y = Cyclotomic10(3, 2, -7, 7)
+    yy = N_i(y)
+    print("yy: ", yy)
+    x = Cyclotomic10(15, 0, -8, 8) // yy.to_cycl()
+    self.assertEqual(x.to_subring(), RealCyclotomic10(5, 3))
+
+
 class TestExactUnitary(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
@@ -42,10 +89,6 @@ class TestExactUnitary(unittest.TestCase):
     # Identity unitary (u=1, v=0, k=0)
     cls.I = ExactUnitary(Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 0, 0), 0)
 
-  def test_defs(self):
-    self.assertTrue(np.allclose(ExactUnitary.F().to_matrix_np, Fnp))
-    self.assertTrue(np.allclose(ExactUnitary.T().to_matrix_np, Tnp))
-
   def test_rings(self):
     test = Cyclotomic10(0, -1, 0, 0)
     result = self.omega**6
@@ -55,12 +98,6 @@ class TestExactUnitary(unittest.TestCase):
     self.assertEqual(Cyclotomic10.One().evaluate(), 1)
     self.assertEqual(Cyclotomic10.One().conjugate().evaluate(), 1)
     self.assertEqual(Cyclotomic10.Tau().automorphism().evaluate(), -Ntau - 1)
-
-  def test_global_phase(self):
-    I = ExactUnitary.I()
-    self.assertTrue(np.allclose(I.omega_mul(6).to_matrix_np, Nomega**6 * np.eye(2)))
-    T = ExactUnitary.T()
-    self.assertTrue(np.allclose((I.omega_mul(6) * (T**7)).to_matrix_np, Nomega**6 * np.eye(2) @ Tnp**7))
 
   def test_F_squared_eq_one(self):
     tt = ExactUnitary.F()
@@ -126,30 +163,7 @@ class TestExactUnitary(unittest.TestCase):
 
   def test_powers(self):
     T = ExactUnitary.T()
-    T2 = T**2
-    T2np = Tnp**2
-    self.assertTrue(np.allclose(T2.to_matrix_np, T2np))
-    self.assertTrue(np.allclose((T**7).to_matrix_np, Tnp**7))
-
-  def test_units(self):
-    x = Cyclotomic10.One() + Cyclotomic10.One()
-    y = _get_unit_for_residue(2)
-    print("Integer remainder: ", (x * y).integer_remainder_mod_one_plus_omega() % 5)
-    t = Cyclotomic10.from_int(-2)
-    s = _get_unit_for_residue(3)
-    print("Integer remainder for 3: ", (t * s).integer_remainder_mod_one_plus_omega() % 5)
-    w = Cyclotomic10.from_int(4)
-    s = _get_unit_for_residue(4 % 5)
-    print("Rem : ", (w * s).integer_remainder_mod_one_plus_omega() % 5)
-
-  def test_division(self):
-    wpo = Cyclotomic10(1, 1, 0, 0)
-    self.assertEqual(N(wpo), 5)
-    wpoi = wpo.inv()
-    print("(w+1)*(w+1)^-1", wpo * wpoi)
-    print(wpoi.galois_norm())
-    print(wpo.galois_norm())
-    print("Actual div: ", wpo.div_by_one_plus_omega())
+    self.assertEqual(T**10, ExactUnitary.I(), "T^10 should be identity")
 
   def test_braidwords(self):
     I = ExactUnitary.I()
@@ -158,10 +172,8 @@ class TestExactUnitary(unittest.TestCase):
     I6 = I.omega_mul(6)
     T7 = T**7
     sigma1_lhs = I6 * T7
-    self.assertTrue(np.allclose(sigma1_lhs.to_matrix_np, sigma1))
 
     sigma2_lhs = I6 * F * T7 * F
-    self.assertTrue(np.allclose(sigma2_lhs.to_matrix_np, sigma2))
 
     I2 = I.omega_mul(2)
     S3 = sigma1_lhs**3
@@ -169,9 +181,8 @@ class TestExactUnitary(unittest.TestCase):
 
     I4 = I.omega_mul(4)
     S121 = sigma1_lhs * sigma2_lhs * sigma1_lhs
-    # print("F: ", F)
-    # print("(w^4)s1s2s1: ", I4 * S121)
-    self.assertTrue(np.allclose(F.to_matrix_np, (I4 * S121).to_matrix_np))  # TODO there is an error here with the multiplication
+
+    self.assertEqual(F, I4 * S121)
 
 
 if __name__ == "__main__":

@@ -91,12 +91,10 @@ class Cyclotomic10:
   def Omega_(self, k: int):
     return self.Omega() ** k
 
-  # @cached_property
   def conjugate(self):
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c1, -c1, c1 - c3, -c1 - c2)
 
-  # @cached_property
   def automorphism(self):
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c3, -c2 - c3, c3, c1 - c3)
@@ -113,12 +111,6 @@ class Cyclotomic10:
       return self.automorphism().automorphism()
     else:
       raise NotImplementedError
-
-  def norm_squared(self):
-    product = self * self.conjugate()
-    c0, c1, c2, c3 = product.coeffs()
-    # return RealCyclotomic10(c0, c2)
-    return product
 
   def inv(self):
     conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
@@ -163,12 +155,6 @@ class Cyclotomic10:
   def norm_i(self):
     return self * self.conjugate()
 
-  def norm_tau(self):
-    return self * self.automorphism()
-
-  def N(self):
-    return self.norm_i().norm_tau()
-
   def integer_remainder_mod_one_plus_omega(self):
     a, b, c, d = self.coeffs()
     return a - b + c - d
@@ -192,14 +178,6 @@ class Cyclotomic10:
   def divides_by_one_plus_omega(self) -> bool:
     return self.galois_norm() % 5 == 0 and self.mod_one_plus_omega() == 0
 
-  # def evaluate(self):
-  #   theta = math.pi / 5  # ω = e^(πi/5)
-  #   omega = complex(math.cos(theta), math.sin(theta))
-  #   total = 0j
-  #   for i in range(4):
-  #     total += self.coeffs()[i] * (omega**i)
-  #   return total
-
   def evaluate(self):
     omega = mpmath.exp(2 * mpmath.pi * 1j / 10)
     return self.c0 + self.c1 * omega + self.c2 * omega**2 + self.c3 * omega**3
@@ -212,8 +190,8 @@ class Cyclotomic10:
       raise ValueError(f"Tau is not represented in {self}")
 
   def gauss_complexity(self):
-    u1 = self.norm_squared()
-    u2 = self.automorphism().norm_squared()
+    u1 = N_i(self)
+    u2 = N_i(self.automorphism())
     return u1 + u2
 
   def div_by_one_plus_omega(self):
@@ -234,12 +212,16 @@ class Cyclotomic10:
     return self.coeffs() == other.coeffs()
 
   def __add__(self, other):
-    return Cyclotomic10(
-      self.coeffs()[0] + other.coeffs()[0],
-      self.coeffs()[1] + other.coeffs()[1],
-      self.coeffs()[2] + other.coeffs()[2],
-      self.coeffs()[3] + other.coeffs()[3],
-    )
+    if isinstance(other, Cyclotomic10):
+      return Cyclotomic10(
+        self.coeffs()[0] + other.coeffs()[0],
+        self.coeffs()[1] + other.coeffs()[1],
+        self.coeffs()[2] + other.coeffs()[2],
+        self.coeffs()[3] + other.coeffs()[3],
+      )
+    elif isinstance(other, int):
+      a, b, c, d = self.coeffs()
+      return Cyclotomic10(a + other, b, c, d)
 
   def __neg__(self):
     return self.__class__(-self.c0, -self.c1, -self.c2, -self.c3)
@@ -257,9 +239,8 @@ class Cyclotomic10:
   def __repr__(self):
     return f"Cyclotomic10{self.coeffs()}"
 
-
-# TAU = (math.sqrt(5) - 1) / 2
-# PHI = TAU + 1
+  def __hash__(self):
+    return hash(tuple(self.coeffs()))  # Use tuple of coefficients for hashing
 
 
 class RealCyclotomic10:
@@ -403,33 +384,23 @@ class RealCyclotomic10:
       return f"{self.a} - {-self.b}τ"
 
   def __divmod__(self, other: "RealCyclotomic10") -> Tuple["RealCyclotomic10", "RealCyclotomic10"]:
-    """
-    Implements division with remainder for Z[τ]
-    Returns (q,r) such that self = q * other + r with N(r) minimal
-    """
-
     def rounddiv(x: int, y: int) -> int:
       return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
 
     if isinstance(other, int):
       other = RealCyclotomic10(other, 0)
 
-    # Convert to Z[ω] to use conjugates
     a_cyclo = self.to_cycl()
     b_cyclo = other.to_cycl()
 
-    # Multiply by conjugates
     p = a_cyclo * b_cyclo.galois_automorphism_product()
     k = other.norm().evaluate()  # N_τ(other)
 
-    # Round coefficients
     q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
     q_cyclo = Cyclotomic10(*q_coeffs)
 
-    # Convert quotient back to Z[τ]
     q = q_cyclo.to_real()
 
-    # Compute remainder
     r = self - other * q
 
     return q, r
@@ -463,35 +434,6 @@ def gauss_complexity_measure(eta: Cyclotomic10) -> int:
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
 
 
-def find_unit_inverse_mod_one_plus_omega(x: Cyclotomic10) -> Cyclotomic10:
-  if x.divides_by_one_plus_omega():
-    raise ValueError("Input divisible by (1 + ω)")
-
-  xmod = x.mod_one_plus_omega()
-  inv_mod = pow(xmod, -1, 5)
-
-  # Precomputed units
-  units = [
-    Cyclotomic10.One(),
-    Cyclotomic10.Omega(),
-    Cyclotomic10.Omega() ** 2,
-    Cyclotomic10.Omega() ** 3,
-    Cyclotomic10.Omega() ** 4,
-    Cyclotomic10.Tau(),
-    Cyclotomic10.Tau() * Cyclotomic10.Omega(),
-    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 2,
-    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 3,
-    Cyclotomic10.Tau() * Cyclotomic10.Omega() ** 4,
-    # Add more units as needed
-  ]
-
-  for u in units:
-    if u.mod_one_plus_omega() == inv_mod and u.is_unit():
-      return u
-
-  raise RuntimeError(f"No unit inverse found for residue {xmod}")
-
-
 if __name__ == "__main__":
   print(RealCyclotomic10(2, -1).conjugate())
   print(RealCyclotomic10(2, -1) * RealCyclotomic10(2, -1).automorphism())
@@ -514,7 +456,7 @@ if __name__ == "__main__":
   print((y * y.conjugate()).to_subring())
 
   yy = y.inv()
-  print(y.norm_squared().evaluate())
+  print(y.norm_i().evaluate())
   print(yy)
   print(y * yy)
   print(N(yy))
@@ -532,10 +474,6 @@ if __name__ == "__main__":
   print("-1//5: ", -1 // 5)
   test = Cyclotomic10(15, 0, -8, 8)
   print(test.mod_one_plus_omega())
-  u = find_unit_inverse_mod_one_plus_omega(test)
-  print(u)
-  print((test * u).mod_one_plus_omega())
-  print(find_unit_inverse_mod_one_plus_omega(-Cyclotomic10.One()))
   print(Cyclotomic10.Tau().is_unit())
 
   a = Cyclotomic10(7, 3, -2, 1)
@@ -553,3 +491,11 @@ if __name__ == "__main__":
   x = RealCyclotomic10(1, 1)
   print("Testing inverse: ", x * x.inv())
   print("|w+w^4|^2 = ", N_i(Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
+
+  print("Test add")
+  x = Cyclotomic10(1, 2, 3, 4)
+  y = Cyclotomic10(5, 6, 7, 8)
+  z = x + y
+  print(f"{x} + {y} = {z}")  # 6 8 10 12
+
+  print(Cyclotomic10.Tau().conjugate())

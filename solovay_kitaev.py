@@ -3,6 +3,8 @@ import numpy as np
 from typing import List, Tuple, Dict
 from enum import Enum
 import itertools
+from exactUnitary import ExactUnitary
+from util import Gates
 
 type Tensor = np.ndarray
 
@@ -46,6 +48,28 @@ def Hgate() -> Gate:
   return Gate(hgate(), "H")
 
 
+Nomega = np.exp(1j * np.pi / 5)
+
+Ntau = (np.sqrt(5) - 1) / 2
+sqrt_tau = np.sqrt(Ntau)
+
+Tnp = np.array([[1, 0], [0, Nomega]], dtype=complex)
+
+Fnp = np.array([[Ntau, sqrt_tau], [sqrt_tau, -Ntau]], dtype=complex)
+
+sigma1 = np.array([[Nomega**6, 0], [0, Nomega**13]], dtype=complex)
+
+sigma2 = Fnp @ sigma1 @ Fnp.T
+
+
+def S1gate() -> Gate:
+  return Gate(sigma1, "S1")
+
+
+def S2gate() -> Gate:
+  return Gate(sigma2, "S2")
+
+
 def rx(theta: float) -> np.ndarray:
   """Return the X-axis rotation gate (R_x) by angle theta."""
   return np.array([[np.cos(theta / 2), -1j * np.sin(theta / 2)], [-1j * np.sin(theta / 2), np.cos(theta / 2)]])
@@ -85,7 +109,7 @@ def eval_circuit(gates: List[Gate]) -> np.ndarray:
   return init
 
 
-def _generate_binary_list(n: int = 13) -> List[List[int]]:
+def _generate_binary_list(n: int = 20) -> List[List[int]]:
   """Generate all binary strings from length 1 to n."""
   binary_list = []
   for length in range(1, n + 1):
@@ -131,9 +155,9 @@ def _create_gate_list() -> List[Gate]:
 
     for bit in bits:
       if bit:
-        gate = Tgate()
+        gate = S1gate()
       else:
-        gate = Hgate()
+        gate = S2gate()
 
       u = u @ gate
 
@@ -145,6 +169,29 @@ def _create_gate_list() -> List[Gate]:
 def trace_dist(u: Tensor, v: Tensor) -> float:
   """Compute trace distance between two 2x2 matrices."""
   return np.real(0.5 * np.trace(np.sqrt((u - v).conj().transpose() @ (u - v))))
+
+
+def _to_quaternion(U: Tensor) -> Tensor:
+  r"""
+  Converts :math:U :math:\in :math:\text{SU}_2{\mathbb{C}} as a unique quaternion
+  """
+  return np.array([
+    U[0, 0].real,
+    U[0, 0].imag,
+    U[0, 1].imag,
+    -U[0, 1].real,
+  ])
+
+
+def _from_quaternion(q: np.ndarray) -> Tensor:
+  a, b, c, d = q
+  return np.array(
+    [
+      [a + 1j * d, -c + 1j * b],
+      [c + 1j * b, a - 1j * d],
+    ],
+    dtype=np.complex128,
+  )
 
 
 @dataclass
@@ -230,8 +277,78 @@ class SolovayKitaev:
     return self.gate_list[np.argmin(distances)]
 
 
-if __name__ == "__main__":
+import scipy as sp
+from typing import Any
+
+_CLIFFORD_T_BASIS = {
+  "H": Gates.H,
+  "T": Gates.T,
+  "T*": Gates.T.conj().T,
+}
+
+_FIBONACCI_BASIS = {
+  "σ1": sigma1,
+  "σ1*": sigma1.conj().T,
+  "σ2": sigma2,
+  "σ2*": sigma2.conj().T,
+}
+
+
+def _SU2_transform(U):
+  """Strip global phase and return SU(2)-normalized matrix and global phase."""
+  phase = np.angle(np.linalg.det(U)) / 2
+  su2 = U * np.exp(-1j * phase)
+  return su2, phase % np.pi
+
+
+def _is_approximated(target_op: np.ndarray, ops: List[np.ndarray] = None, kd_tree: sp.spatial.KDTree = None, tol=1e-8) -> Tuple[bool, Tensor, Any]:
+  gate_points = [_to_quaternion(target_op)]
+  tree = kd_tree or sp.spatial.KDTree(ops)
+  dist, indx = tree.query(gate_points, workers=-1)
+  return (dist[0] < tol, gate_points[0], indx[0])
+
+
+def _build_eps_net(gate_set: dict[str, np.ndarray], max_depth=10):
+  gates = list(gate_set.keys())
+  gate_mats = {k: _SU2_transform(v)[0] for k, v in gate_set.items()}
+  gate_phases = {k: _SU2_transform(v)[1] for k, v in gate_set.items()}
+
+  approx_ids = [[g] for g in gates]
+  approx_mats = [gate_mats[g] for g in gates]
+  approx_phs = [gate_phases[g] for g in gates]
+  approx_quats = [_to_quaternion(m) for m in approx_mats]
+
+  for depth in range(max_depth - 1):
+    kdtree = sp.spatial.KDTree(np.array(approx_quats))
+    new_ids, new_mats, new_phs, new_quats = [], [], [], []
+    for seq, mat, phase in zip(approx_ids, approx_mats, approx_phs):
+      for g in gates:
+        if len(seq) > 0 and seq[-1] == g + "*":
+          continue
+        new_seq = seq + [g]
+        total_phase = gate_phases[g] + phase
+        new_mat = (-1) ** (total_phase >= np.pi) * gate_mats[g] @ mat
+        norm_phase = total_phase % np.pi
+        exists, quat, idx = _is_approximated(new_mat, kd_tree=kdtree)
+        if not exists or norm_phase != approx_phs[idx]:
+          new_ids.append(new_seq)
+          new_mats.append(new_mat)
+          new_phs.append(norm_phase)
+          new_quats.append(quat)
+    approx_ids += new_ids
+    approx_mats += new_mats
+    approx_phs += new_phs
+    approx_quats += new_quats
+  return approx_ids, approx_mats, approx_phs, approx_quats
+
+
+def __run_example():
   target_unit = np.array([[0, 1], [1, 0]])
   sk = SolovayKitaev(_create_gate_list())
   gates = sk.solovay_kitaev(target_unit, 4)
   assert np.allclose(eval_circuit(gates), target_unit)
+
+
+if __name__ == "__main__":
+  i, m, p, q = _build_eps_net(_FIBONACCI_BASIS, max_depth=6)
+  print(q)

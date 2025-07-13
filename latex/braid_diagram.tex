@@ -3,17 +3,35 @@
 \usepackage{tikz}
 \usetikzlibrary{braids}
 \begin{document}
+
+\usepgfmodule{nonlineartransformations}
+\makeatletter
+\def\polartransformation{%
+% \pgf@x will contain the radius
+% \pgf@y will contain the distance
+\pgfmathsincos@{\pgf@sys@tonumber\pgf@x}%
+% pgfmathresultx is now the cosine of radius and
+% pgfmathresulty is the sine of radius
+\pgf@x=\pgfmathresultx\pgf@y%
+\pgf@y=\pgfmathresulty\pgf@y%
+}
+\makeatother
+
 \begin{center}
 \begin{tikzpicture}
+\begin{scope}
+\pgftransformnonlinear{\polartransformation}
 \pic[
 rotate=90,
 braid/.cd,
-every strand/.style={ultra thick},
-strand 1/.style={red},
-strand 2/.style={green},
-strand 3/.style={blue},  % You can increase strands if needed
-] {braid={s_2 s_2 s_1
+every strand/.style={line width=6pt,magenta!67},
+border height=0cm,
+crossing height=15.7pt,
+gap=.2,
+nudge factor=0.01,
+] at (0,5) {braid={s_1 s_2 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_2 s_1 s_1 s_1 s_1 s_1 s_1 s_1 s_1
 }}; 
+\end{scope}
 \end{tikzpicture}
 \end{center}
 \end{document}

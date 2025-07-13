@@ -41,6 +41,27 @@ def trace_norm(U: np.ndarray, V: Union[np.ndarray, ExactUnitary]) -> float:
       return trace_norm(U, V.to_matrix_np)
 
 
+class Gates(object):
+  """
+  Collection of common quantum gates.
+  """
+
+  # Pauli matrices
+  X = np.array([[0.0, 1.0], [1.0, 0.0]])
+  Y = np.array([[0.0, -1.0j], [1.0j, 0.0]])
+  Z = np.array([[1.0, 0.0], [0.0, -1.0]])
+  # Hadamard gate
+  H = np.array([[1.0, 1.0], [1.0, -1.0]]) / np.sqrt(2)
+  # S gate
+  S = np.array([[1.0, 0.0], [0.0, 1.0j]])
+  # T gate
+  T = np.array([[1.0, 0.0], [0.0, np.sqrt(1j)]])
+  # swap gate
+  swap = np.identity(4)[[0, 2, 1, 3]]
+
+  CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
+
+
 if __name__ == "__main__":
   # Example usage
   mp.dps = 200

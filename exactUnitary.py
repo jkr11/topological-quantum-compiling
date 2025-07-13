@@ -9,15 +9,15 @@ class ExactUnitary:
   def __init__(self, u: Cyclotomic10, v: Cyclotomic10, k: int):
     self.u: Cyclotomic10 = u
     self.v: Cyclotomic10 = v
-    self.k: int = k
+    self.k: int = k % 10
     self.validate()
 
   def validate(self):
     norm_u_sq = N_i(self.u)
     norm_v_sq = N_i(self.v)
-    left = (norm_u_sq.to_cycl() + (Cyclotomic10.Tau() * norm_v_sq)).evaluate()
-    if mpmath.fabs(left - 1) > mpmath.mpf("1e-3"):
-      raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left}")
+    left = norm_u_sq + (RealCyclotomic10.Tau() * norm_v_sq)
+    if left != RealCyclotomic10.One():
+      raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1")
 
   # @property
   # def u(self):
@@ -57,6 +57,9 @@ class ExactUnitary:
     k = (other.k + self.k) % 10
     return ExactUnitary(u3, v3, k + 5 % 10)
 
+  def __matmul__(self, other):
+    return self.mul(other)
+
   def __rmul__(self, scalar):
     if isinstance(scalar, Cyclotomic10):
       return self.scalar_mul_left(scalar)
@@ -73,6 +76,9 @@ class ExactUnitary:
     v_new = self.v * omega_k
     new_k = (self.k + 2 * k) % 10
     return ExactUnitary(u_new, v_new, new_k)
+
+  def __hash__(self):
+    return hash((self.u, self.v, self.k))
 
   # def to_matrix(self) -> List[List[Cyclotomic10]]:
   # TODO: need rmul for float? since we need sqrt(tau)
@@ -116,7 +122,7 @@ class ExactUnitary:
     return False
 
   def gauss_complexity(self) -> int:
-    return int(self.u.gauss_complexity().evaluate().real)
+    return self.u.gauss_complexity().evaluate()
 
   @classmethod
   def from_gates_string(self, gates: List[str]):
@@ -131,4 +137,20 @@ class ExactUnitary:
     return unitary
 
   def __repr__(self):
-    return f"U{str(self.u), str(self.v), self.k}\n {self.to_numpy}"
+    return f"U{str(self.u), str(self.v), self.k}"  # {self.to_numpy}"
+
+  @classmethod
+  def sigma1(self):
+    """
+    Returns sigma1 as an exact unitary from the <F,T> circuit (wI)^6 T^7
+    """
+    wI = self.I().omega_mul(6)
+    return wI * (self.T() ** 7)
+
+  @classmethod
+  def sigma2(self):
+    """
+    Returns sigma2 as an exact unitary
+    """
+    wI = self.I().omega_mul(6)
+    return wI * self.F() * self.T() ** 7 * self.F()

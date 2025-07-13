@@ -118,37 +118,61 @@ def fully_reduce_to_sigma(gates: List[Gate]) -> List[Gate]:
   return gates
 
 
-def exact_synthesize(U) -> List[Gate]:
+T_power_table = [ExactUnitary.T() ** j for j in range(11)]
+FT_power_table = [ExactUnitary.F() * T_power_table[j] for j in range(11)]
+omega_k_T_j_table = {}
+for k in range(11):
+  for j in range(11):
+    omega_k_T_j_table[ExactUnitary.I().omega_mul(k) * T_power_table[j]] = (k, j)
+
+
+def G(u):
+  return u.gauss_complexity()
+
+
+def exact_synthesize(U: ExactUnitary) -> List[Gate]:
   F = U.__class__.F()
   T = U.__class__.T()
   I = U.__class__.I()
-  g = U.gauss_complexity()
+  g = G(U)
   Ur = U
   C: List[Gate] = []
-
+  print("Starting synthesis for U:", Ur)
   while g > 2:
+    print("Current complexity:", g)
     min_complexity = math.inf
     J = 0
+    # argmin over FT^j * Ur
     for j in range(11):
-      gg = (F * T**j * Ur).gauss_complexity()
+      candidate = FT_power_table[j] * Ur
+      gg = candidate.gauss_complexity()
+      print(f"Checking FT^{j}: complexity: {gg}")
       if gg < min_complexity:
         min_complexity = gg
+        print("Current best J:", j, "with complexity:", min_complexity)
         J = j
-    Ur = F * T**J * Ur
+    Ur = FT_power_table[J] * Ur
     g = Ur.gauss_complexity()
     C.insert(0, TGate((10 - J) % 10))
     C.insert(0, FGate())
-
+  print("Reduced to complexity 2, Ur:", Ur)
   # Final matching to I * ω^k * T^j form
-  for k in range(11):
-    for j in range(11):
-      t = I.omega_mul(k) * T**j
-      if t == Ur:
-        if j != 0:
-          C.insert(0, TGate(j))
-        if k != 0:
-          C.insert(0, WIGate(k))
-        return C
+  # for k in range(11):
+  #  for j in range(11):
+  #    t = I.omega_mul(k) * T**j
+  #    if t == Ur:
+  #      if j != 0:
+  #        C.insert(0, TGate(j))
+  #      if k != 0:
+  #        C.insert(0, WIGate(k))
+  #      return C
+  if Ur in omega_k_T_j_table:
+    k, j = omega_k_T_j_table[Ur]
+    if j != 0:
+      C.insert(0, TGate(j))
+    if k != 0:
+      C.insert(0, WIGate(k))
+    return C
   raise ValueError("Final reduction failed")
 
 
@@ -267,12 +291,67 @@ def rz(phi: float) -> np.ndarray:
   """
   return np.array([[np.exp(-1j * phi / 2), 0], [0, np.exp(1j * phi / 2)]], dtype=complex)
 
+
 def X() -> np.ndarray:
   """
   Returns the X gate as a 2x2 numpy array.
   X = [[0, 1], [1, 0]]
   """
   return np.array([[0, 1], [1, 0]], dtype=complex)
+
+
+def simplify_wi_prefix(gates: List[Gate]) -> List[Gate]:
+  i = 0
+  total_power = 0
+
+  # Collect consecutive WIGates at the front
+  while i < len(gates) and isinstance(gates[i], WIGate):
+    total_power += gates[i].power
+    i += 1
+
+  # Reduce power modulo 10
+  reduced_power = total_power % 10
+
+  # Construct the simplified gate list
+  simplified = []
+  if reduced_power != 0:
+    simplified.append(WIGate(power=reduced_power))
+
+  # Append the rest of the gates untouched
+  simplified.extend(gates[i:])
+  return simplified
+
+
+def expand_T_power(k: int) -> List[Gate]:
+  k_mod = k % 10
+  if k_mod == 0:
+    return []  # Identity
+  return [WIGate(2 * k_mod)] + [Sigma1()] * (3 * k_mod)
+
+
+def expand_F_power(k: int) -> List[Gate]:
+  k_mod = k % 2
+  if k_mod == 0:
+    return []  # Identity
+  return [WIGate(4), Sigma1(), Sigma2(), Sigma1()]
+
+
+def convert_ft_to_sigma(gates: List[Gate]) -> List[Gate]:
+  result = []
+
+  for gate in gates:
+    if isinstance(gate, WIGate):
+      if gate.power == 10:
+        pass
+    elif isinstance(gate, TGate):
+      result.extend(expand_T_power(gate.power))
+    elif isinstance(gate, FGate):
+      result.extend(expand_F_power(gate.power))
+    else:
+      result.append(gate)
+
+  return result
+
 
 from util import trace_norm
 
@@ -287,40 +366,109 @@ if __name__ == "__main__":
   # print(gates)
   # red = fully_reduce_to_sigma(gates)
   # print(red)
-  # phi = 4 * math.pi / 10  # π/10 rotation
-  # epsilon = 1e-2  # precision
-  # z_gates = synthesize_z_rotation(phi, epsilon)
-  # print(f"Z-rotation circuit for φ = π/10:")
-  # print(f"Number of gates: {len(z_gates)}")
-  # print(f"Gate sequence: {z_gates}")
-  # print
-  # gates_seq = z_gates
-  # print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
-  # print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
-  # print("Actual z matrix:\n", rz(4 * math.pi / 100))
-  # eval_unitary = evaluate_gate_sequence(gates_seq)
-  # eval_matrix = eval_unitary.to_numpy
-  # actual_matrix = rz(math.pi / 10)
-  # print("Evaluating gates: ", eval_unitary)
-  # print("As numpy matrix:\n", eval_matrix)
-  # print("Actual z matrix:\n", actual_matrix)
-  # Check if the matrices are close within a given tolerance
-  # tol = 1e-5  # or whatever accuracy you want
-  # norm = trace_norm(eval_matrix, actual_matrix)
-  # print(f"Trace norm between evaluated and actual: {norm}")
-  # if norm < tol:
-  #  print("PASS: The evaluated matrix is within the desired accuracy.")
-  # else:
-  #  print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
-  input = 2 * math.pi / (4*10**3) 
-  epsilon = 1e-2
-  gates = synthesize_zx_rotation(input, epsilon)
-  print(f"ZX-rotation circuit for φ = {input}:")
-  print(f"Number of gates: {len(gates)}")
-  print(f"Gate sequence: {gates}")
-  eval_unitary = evaluate_gate_sequence(gates)
+  phi = 4 * math.pi / 1000  # π/10 rotation
+  epsilon = 1e-7  # precision
+  z_gates = synthesize_z_rotation(phi, epsilon)
+  print("Z-rotation circuit for φ = π/10:")
+  print(f"Number of gates: {len(z_gates)}")
+  print(f"Gate sequence: {z_gates}")
+  print
+  gates_seq = z_gates
+  print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
+  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
+  print("Actual z matrix:\n", rz(4 * math.pi / 1000))
+  eval_unitary = evaluate_gate_sequence(gates_seq)
   eval_matrix = eval_unitary.to_numpy
-  actual_matrix = rz(input) @ X()
+  actual_matrix = rz(4 * math.pi / 1000)
   print("Evaluating gates: ", eval_unitary)
   print("As numpy matrix:\n", eval_matrix)
-  print("Actual zx matrix:\n", actual_matrix)
+  print("Actual z matrix:\n", actual_matrix)
+  # Check if the matrices are close within a given tolerance
+  tol = 1e-5  # or whatever accuracy you want
+  norm = trace_norm(np.array(eval_matrix).reshape(2,2), actual_matrix)
+  print(f"Trace norm between evaluated and actual: {norm}")
+  if norm < tol:
+    print("PASS: The evaluated matrix is within the desired accuracy.")
+  else:
+    print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
+  # print(((ExactUnitary.T() * ExactUnitary.T()) ** 5).to_numpy)
+  # sigma1 = (ExactUnitary.T() ** 7).omega_mul(6)
+  # print("Sigma1:", sigma1)
+  # sigma2 = ExactUnitary.F() * sigma1 * ExactUnitary.F()
+  # Fcalc = ExactUnitary.I().omega_mul(4) * sigma1 * sigma2 * sigma1
+  # print("Fcalc:", Fcalc)
+  # print("F", ExactUnitary.F())
+
+  exit(0)
+  gates = [
+    WIGate(power=9),
+    TGate(power=10),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=9),
+    FGate(),
+    TGate(power=4),
+    FGate(),
+    TGate(power=6),
+    FGate(),
+    TGate(power=8),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=8),
+    FGate(),
+    TGate(power=6),
+    FGate(),
+    TGate(power=4),
+    FGate(),
+    TGate(power=9),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=1),
+    FGate(),
+    TGate(power=6),
+    FGate(),
+    TGate(power=4),
+    FGate(),
+    TGate(power=2),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=2),
+    FGate(),
+    TGate(power=4),
+    FGate(),
+    TGate(power=6),
+    FGate(),
+    TGate(power=1),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=5),
+    FGate(),
+    TGate(power=2),
+  ]
+  print(len(gates))
+  print(len(canonicalize_and_reduce_identities(gates)))
+  peep = peephole_rewrite_to_sigma(gates)
+  print(peep)
+  print("-----")
+  peep = canonicalize_and_reduce_identities(peep)
+  print("-----")
+  peep = convert_ft_to_sigma(peep)
+  print(peep)
+  from print import generate_braid_tikz
+
+  generate_braid_tikz(simplify_wi_prefix(peep))
