@@ -1,6 +1,6 @@
 import argparse
 import mpmath
-from synthesis import synthesize_z_rotation, synthesize_zx_rotation
+from src.exact_synthesis.prec import synthesize_z_rotation, synthesize_zx_rotation
 
 
 def main():

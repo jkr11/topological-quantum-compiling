@@ -1,5 +1,5 @@
 import numpy as np
-from util import trace_norm
+from src.exact_synthesis.util import trace_norm
 
 
 class AnyonModel:
