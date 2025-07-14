@@ -3,8 +3,8 @@ import numpy as np
 from typing import List, Tuple, Dict
 from enum import Enum
 import itertools
-from exactUnitary import ExactUnitary
-from util import Gates
+from src.exact_synthesis.exactUnitary import ExactUnitary
+from src.exact_synthesis.util import Gates
 
 type Tensor = np.ndarray
 

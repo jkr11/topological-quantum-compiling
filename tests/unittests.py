@@ -1,12 +1,13 @@
 import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
-from rings import Cyclotomic10, RealCyclotomic10
-from rings import *
-from numberTheory import solve_norm_equation, N_i
-from exactUnitary import ExactUnitary
-from exactUnitary import *
-from numberTheory import *
+
+from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10
+from exact_synthesis.rings import *
+from exact_synthesis.numberTheory import solve_norm_equation, N_i
+from exact_synthesis.exactUnitary import ExactUnitary
+from exact_synthesis.exactUnitary import *
+from exact_synthesis.numberTheory import *
 
 # TODO: remove these
 Nomega = np.exp(1j * np.pi / 5)

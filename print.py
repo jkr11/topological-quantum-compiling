@@ -1,6 +1,6 @@
 import subprocess
 from typing import List
-from synthesis import Gate, Sigma1, Sigma2, TGate, FGate, WIGate
+from src.exact_synthesis.synthesis import Gate, Sigma1, Sigma2, TGate, FGate, WIGate
 import os
 
 
