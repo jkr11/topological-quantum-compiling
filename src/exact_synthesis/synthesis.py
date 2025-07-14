@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Union
 import math
-from exactUnitary import *
-from numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from rings import N, N_i
-from util import CONSTANTS
+from exact_synthesis.exactUnitary import ExactUnitary
+from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N_i, N, N_tau
+from exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
+from exact_synthesis.util import CONSTANTS
 
 
 @dataclass(frozen=True)
@@ -353,7 +353,7 @@ def convert_ft_to_sigma(gates: List[Gate]) -> List[Gate]:
   return result
 
 
-from util import trace_norm
+from exact_synthesis.util import trace_norm
 
 if __name__ == "__main__":
   # U = ExactUnitary.F()

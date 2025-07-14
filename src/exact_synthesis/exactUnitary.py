@@ -1,7 +1,5 @@
-from dataclasses import dataclass
-from rings import Cyclotomic10, np, cached_property, RealCyclotomic10, N_i, N
-import cmath
-from typing import List, Tuple
+from exact_synthesis.rings import Cyclotomic10, np, cached_property, RealCyclotomic10, N_i
+from typing import List
 import mpmath
 
 

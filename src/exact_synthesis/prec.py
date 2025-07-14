@@ -1,11 +1,14 @@
-from rings import Cyclotomic10, RealCyclotomic10
+from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10
 import mpmath
 from mpmath import mp
 import random
-from numberTheory import EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation, N_i
-from typing import List, Union, Tuple
-from exactUnitary import ExactUnitary
-from synthesis import Gate, exact_synthesize
+from exact_synthesis.numberTheory import EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation, N_i
+from typing import List, Tuple
+from exact_synthesis.exactUnitary import ExactUnitary
+from exact_synthesis.synthesis import Gate, exact_synthesize
+import math
+from exact_synthesis.synthesis import evaluate_gate_sequence, X
+from mpmath import exp
 
 
 def APPROX_REAL(x, n) -> RealCyclotomic10:
@@ -82,9 +85,6 @@ def RANDOM_SAMPLE(theta, epsilon, r) -> Cyclotomic10:
   result = part1.to_cycl() + part2
 
   return result
-
-
-import math
 
 
 def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnitary]:
@@ -178,10 +178,6 @@ def synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   # print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
-
-
-from synthesis import evaluate_gate_sequence, X
-from mpmath import exp
 
 
 def rz_mp(phi):
@@ -331,4 +327,4 @@ if __name__ == "__main__":
   #
   # ()
   # run_table_one()
-  test_synthesize_zx_rotation()
+  test_synthesize_z_rotation()

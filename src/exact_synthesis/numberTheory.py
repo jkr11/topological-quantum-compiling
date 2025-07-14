@@ -1,9 +1,9 @@
 import math
 import random
-from rings import Cyclotomic10, RealCyclotomic10, N, N_tau, N_i
+from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N, N_tau, N_i
 from typing import List, Tuple, Union
 from itertools import product
-from util import CONSTANTS
+from exact_synthesis.util import CONSTANTS
 
 
 def fibonacci(n: int) -> int:
