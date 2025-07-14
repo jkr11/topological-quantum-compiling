@@ -103,6 +103,8 @@ def is_square(n: int) -> Union[int, None]:
 
 
 def IS_PRIME(p: int) -> bool:
+  return miller_rabin(p)
+
   if p < 2:
     return False
   if p == 2 or p == 3:
@@ -117,6 +119,39 @@ def IS_PRIME(p: int) -> bool:
       return False
     i += w
     w = 6 - w  # Alternate between adding 2 and 4 (check 6k ± 1)
+  return True
+
+
+def miller_rabin(n, k=7):
+  """Use Miller-Rabin primality test to check if n is prime.
+  k is number of accuracy rounds.
+  """
+  if n < 2:
+    return False
+
+  small_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23]
+  for sp in small_primes:
+    if n == sp:
+      return True
+    if n % sp == 0 and n != sp:
+      return False
+
+  r, d = 0, n - 1
+  while d % 2 == 0:
+    d >>= 1
+    r += 1
+
+  for _ in range(k):
+    a = random.randrange(2, n - 1)
+    x = pow(a, d, n)
+    if x == 1 or x == n - 1:
+      continue
+    for __ in range(r - 1):
+      x = pow(x, 2, n)
+      if x == n - 1:
+        break
+    else:
+      return False
   return True
 
 
@@ -204,11 +239,11 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
       a, b = a, a - b
       k = k + 1
     mu = a * b
-    print(f"Current state: a={a}, b={b}, mu={mu}, k={k}")
+    # print(f"Current state: a={a}, b={b}, mu={mu}, k={k}")
   assert abs(mu) == 1, "Failed to reduce unit to base units"
 
   # Complete set of base units in Z[τ]
-  print("a, b: ", a, b)
+  # print("a, b: ", a, b)
   match (a, b):
     case (1, 0):  # 1
       pass
@@ -393,12 +428,12 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
           y: Cyclotomic10 = gcd(xii.to_cycl(), Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
           u = xii.to_cycl() // N_i(y).to_cycl()  # TODO:
           s, m = UNIT_DLOG(u.to_subring())
-          print("S, M: ", s, m)
+          # print("S, M: ", s, m)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
-          print("X before mul: , ", x)
-          print(f"X = {x} * tau^{m // 2} * {y}")
+          # print("X before mul: , ", x)
+          # print(f"X = {x} * tau^{m // 2} * {y}")
           x = x * (Cyclotomic10.Tau() ** (m // 2)) * y
-          print("X in norm equation: ", x)
+          # print("X in norm equation: ", x)
   return x
 
 

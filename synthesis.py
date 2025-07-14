@@ -137,25 +137,25 @@ def exact_synthesize(U: ExactUnitary) -> List[Gate]:
   g = G(U)
   Ur = U
   C: List[Gate] = []
-  print("Starting synthesis for U:", Ur)
+  # print("Starting synthesis for U:", Ur)
   while g > 2:
-    print("Current complexity:", g)
+    # print("Current complexity:", g)
     min_complexity = math.inf
     J = 0
     # argmin over FT^j * Ur
     for j in range(11):
       candidate = FT_power_table[j] * Ur
       gg = candidate.gauss_complexity()
-      print(f"Checking FT^{j}: complexity: {gg}")
+      # print(f"Checking FT^{j}: complexity: {gg}")
       if gg < min_complexity:
         min_complexity = gg
-        print("Current best J:", j, "with complexity:", min_complexity)
+        # print("Current best J:", j, "with complexity:", min_complexity)
         J = j
     Ur = FT_power_table[J] * Ur
     g = Ur.gauss_complexity()
     C.insert(0, TGate((10 - J) % 10))
     C.insert(0, FGate())
-  print("Reduced to complexity 2, Ur:", Ur)
+  # print("Reduced to complexity 2, Ur:", Ur)
   # Final matching to I * ω^k * T^j form
   # for k in range(11):
   #  for j in range(11):
@@ -385,7 +385,7 @@ if __name__ == "__main__":
   print("Actual z matrix:\n", actual_matrix)
   # Check if the matrices are close within a given tolerance
   tol = 1e-5  # or whatever accuracy you want
-  norm = trace_norm(np.array(eval_matrix).reshape(2,2), actual_matrix)
+  norm = trace_norm(np.array(eval_matrix).reshape(2, 2), actual_matrix)
   print(f"Trace norm between evaluated and actual: {norm}")
   if norm < tol:
     print("PASS: The evaluated matrix is within the desired accuracy.")

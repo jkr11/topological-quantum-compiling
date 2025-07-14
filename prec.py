@@ -2,13 +2,13 @@ from rings import Cyclotomic10, RealCyclotomic10
 import mpmath
 from mpmath import mp
 import random
-from numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation, N_i
+from numberTheory import EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation, N_i
 from typing import List, Union, Tuple
 from exactUnitary import ExactUnitary
 from synthesis import Gate, exact_synthesize
 
 
-def APPROX_REAL(x, n):
+def APPROX_REAL(x, n) -> RealCyclotomic10:
   TAU = (mpmath.sqrt(5) - 1) / 2
   PHI = TAU + 1
   x = mpmath.mpf(x)
@@ -16,18 +16,19 @@ def APPROX_REAL(x, n):
   phi = mpmath.mpf(PHI)
   PREC = tau ** (n - 1) * (1 - tau**n)
 
-  p = mpmath.fibonacci(n)
-  q = mpmath.fibonacci(n + 1)
+  o = int(mpmath.fibonacci(n - 1))
+  p = int(mpmath.fibonacci(n))
+  q = int(mpmath.fibonacci(n + 1))
   u = ((-1) ** (n + 1)) * p
-  v = ((-1) ** n) * mpmath.fibonacci(n - 1)
+  v = ((-1) ** n) * o
 
   assert u * p + v * q == 1, f"Failed: u * p + v * q = {u * p + v * q}, expected 1"
 
   c = mpmath.nint(x * q)
   cuq = c * u / q
   nint_cuq = int(mpmath.nint(cuq))
-  a = int(c * v + p * nint_cuq)
-  b = int(c * u - q * nint_cuq)
+  a = c * v + p * nint_cuq
+  b = c * u - q * nint_cuq
 
   approx = a + b * tau
   abs_diff = mpmath.fabs(x - approx)
@@ -37,7 +38,7 @@ def APPROX_REAL(x, n):
   return RealCyclotomic10(int(a), int(b))
 
 
-def RANDOM_SAMPLE(theta, epsilon, r):
+def RANDOM_SAMPLE(theta, epsilon, r) -> Cyclotomic10:
   """
   Implements the RANDOM-SAMPLE algorithm with arbitrary precision using mpmath.
   Returns a Cyclotomic10MP element.
@@ -47,11 +48,12 @@ def RANDOM_SAMPLE(theta, epsilon, r):
   tau = mpmath.mpf(TAU)
   phi = mpmath.mpf(PHI)
   theta = mpmath.mpf(theta)
+  assert 0 <= theta < mpmath.pi / 5, f"was {theta} instead"
   epsilon = mpmath.mpf(epsilon)
   r = mpmath.mpf(r)
 
   C = mpmath.sqrt(phi / (4 * r))
-  m = int(mpmath.ceil(mpmath.log(C * epsilon * r, tau))) + 1
+  m = int(mpmath.ceil(mpmath.log(C * epsilon * r) / mpmath.log(tau))) + 1
   N = int(mpmath.ceil(phi**m))
 
   sin_theta = mpmath.sin(theta)
@@ -94,41 +96,45 @@ def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnit
   PHI = TAU + 1
 
   C = mpmath.sqrt(PHI / 4)
-  print("C: ", C)
-  print("C * eps: ", C * eps)
-  print("log(C * eps): ", mpmath.log(C * eps, TAU))
-  m = int(mpmath.ceil(mpmath.log(C * eps, TAU))) + 1
-  print("TAU ** m:", PHI**m)
-  print("m: ", m)
 
-  theta = 0
-  for k in range(10):
+  m = int(mpmath.ceil(mpmath.log(C * eps, TAU)) + 1)
+
+  theta = None
+  thetas = []
+  k_final = None
+  for k in range(-10, 10):
     theta_candidate = -phi / 2 - math.pi * (k / 5)
     if 0 <= theta_candidate <= math.pi / 5:
       theta = theta_candidate
+      k_final = k
+      thetas.append(theta)
       break
   assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
-
+  if theta is None:
+    raise ValueError("Failed to find suitable k.")
   u = Cyclotomic10.Zero()
   v = Cyclotomic10.Zero()
   not_found = True
+  k = k_final
   while not_found:
     u0 = RANDOM_SAMPLE(theta, eps, 1)
-    print("No solution found, u0:", u0)
-    phi_m = RealCyclotomic10.Phi() ** m
+
+    # print("No solution found, u0:", u0)
+
     xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N_i(u0))
 
     fl = EASY_FACTOR(xi)
-    print("Factorization of xi:", fl)
+    # print("Factorization of xi:", fl)
     if EASY_SOLVABLE(fl):
       print("FOUND SOLUTION")
       not_found = False
-      print("M at this state: ", m)
+
       u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** (m)) * u0
-      ne = solve_norm_equation(xi)
-      v = (Cyclotomic10.Tau() ** (m)) * ne
-  print("u:", u)
-  print("v:", v)
+
+      v = (Cyclotomic10.Tau() ** (m)) * solve_norm_equation(xi)
+
+  # print("u:", u)
+  # print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C, ExactUnitary(u, v, 0)
 
@@ -142,38 +148,39 @@ def synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   """
   phi = mpmath.mpf(phi)
   eps = mpmath.mpf(eps)
-  PHI = (mpmath.sqrt(5) + 1) / 2
   TAU = (mpmath.sqrt(5) - 1) / 2
+  PHI = TAU + 1
   r = mpmath.sqrt(PHI)
   C = mpmath.sqrt(PHI / (4 * r))
   m = int(mpmath.ceil(mpmath.log(C * eps * r, TAU))) + 1
-  theta = 0
-  for k in range(10):
+  theta = None
+  for k in range(-10, 10):
     theta_candidate = phi / 2 + math.pi / 2 - math.pi * (k / 5)
     if 0 <= theta_candidate <= math.pi / 5:
       theta = theta_candidate
       break
   assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
-  u = 0
-  v = 0
+  print(f"FOund k = {k}")
+  u = Cyclotomic10.Zero()
+  v = Cyclotomic10.Zero()
   not_found = True
   while not_found:
     u0 = RANDOM_SAMPLE(theta, eps, r)
     xi = (RealCyclotomic10.Phi() ** (2 * m)) - (RealCyclotomic10.Tau() * N_i(u0))
     fl = EASY_FACTOR(xi)
-    print("Factorization of xi:", fl)
+    # print("Factorization of xi:", fl)
     if EASY_SOLVABLE(fl):
       not_found = False
-      u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
-      ne = solve_norm_equation(xi)
-      v = (Cyclotomic10.Tau() ** m) * ne
-  print("u:", u)
-  print("v:", v)
+      tm = Cyclotomic10.Tau() ** m
+      u = Cyclotomic10.Omega_(k) * (tm) * u0
+      v = (tm) * solve_norm_equation(xi)
+  # print("u:", u)
+  # print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
 
 
-from synthesis import evaluate_gate_sequence, rz, X
+from synthesis import evaluate_gate_sequence, X
 from mpmath import exp
 
 
@@ -196,9 +203,41 @@ def test_synthesize_zx_rotation():
   print("Actual zx matrix:\n", actual_matrix)
 
 
+def run_table_one():
+  prec = 1e-5
+  for k in range(1, 10**3, 100):
+    input = (2 * mpmath.pi * k) / (10**3)
+    print(f"Running for phi = {input}")
+    gates, uni = synthesize_z_rotation(input, prec)
+    print(f"Z-rotation circuit for φ = {input}:")
+    print(f"Number of gates: {len(gates)}")
+    eval_unitary = evaluate_gate_sequence(gates)
+    print(eval_unitary == uni)
+    dist = d(input, eval_unitary.u, eval_unitary.v)
+    print("Dist: ", dist)
+    print("Dist < eps? ", dist < mpmath.mpmathify(prec))
+
+
+def generate_test_values(num_tests=40, start=1.0, factor=0.5):
+  values = []
+  x = start
+  for _ in range(num_tests):
+    values.append(x)
+    x *= factor
+  return values
+
+
+def test_approx_real():
+  n = 400
+  for x in generate_test_values(num_tests=600):
+    print(f"Approx real with  {x}")
+    s = APPROX_REAL(x, n)
+    print(s)
+
+
 def test_synthesize_z_rotation():
-  input = 4 * mpmath.pi / (10**3)
-  epsilon = 1e-4
+  input = 2 * mpmath.pi
+  epsilon = 1e-60
   gates, uni = synthesize_z_rotation(input, epsilon)
   print(f"Z-rotation circuit for φ = {input}:")
   print(f"Number of gates: {len(gates)}")
@@ -290,4 +329,6 @@ if __name__ == "__main__":
   # print(U.to_numpy)
   #
   #
-  test_synthesize_z_rotation()
+  # ()
+  # run_table_one()
+  test_synthesize_zx_rotation()
