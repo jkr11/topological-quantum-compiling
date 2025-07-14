@@ -88,7 +88,13 @@ def RANDOM_SAMPLE(theta, epsilon, r) -> Cyclotomic10:
 
 
 def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnitary]:
-  # Use mpmath for all numerics
+  """
+  approximates Rz(phi) with O(log(1/eps)) gates and precision at most eps, produces an <F,T> circuit.
+
+  returns:
+    the exact unitary U
+    the Circuit C decomposing U by exact synthesis
+  """
   phi = mpmath.mpf(phi)
   eps = mpmath.mpf(eps)
 
@@ -100,18 +106,18 @@ def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnit
   m = int(mpmath.ceil(mpmath.log(C * eps, TAU)) + 1)
 
   theta = None
-  thetas = []
   k_final = None
-  for k in range(-10, 10):
+
+  for k in range(-10, 10):  # is solving here faster?
     theta_candidate = -phi / 2 - math.pi * (k / 5)
     if 0 <= theta_candidate <= math.pi / 5:
       theta = theta_candidate
       k_final = k
-      thetas.append(theta)
       break
   assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
   if theta is None:
     raise ValueError("Failed to find suitable k.")
+
   u = Cyclotomic10.Zero()
   v = Cyclotomic10.Zero()
   not_found = True
@@ -119,12 +125,10 @@ def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnit
   while not_found:
     u0 = RANDOM_SAMPLE(theta, eps, 1)
 
-    # print("No solution found, u0:", u0)
-
     xi = RealCyclotomic10.Phi() * ((RealCyclotomic10.Phi() ** (2 * m)) - N_i(u0))
 
     fl = EASY_FACTOR(xi)
-    # print("Factorization of xi:", fl)
+
     if EASY_SOLVABLE(fl):
       print("FOUND SOLUTION")
       not_found = False
@@ -133,12 +137,11 @@ def synthesize_z_rotation(phi: float, eps: float) -> Tuple[List[Gate], ExactUnit
 
       v = (Cyclotomic10.Tau() ** (m)) * solve_norm_equation(xi)
 
-  # print("u:", u)
-  # print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C, ExactUnitary(u, v, 0)
 
 
+# TODO: all the |u| + tau|v| != 1 but phi? Why?
 def synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   """
   approximating Rz (φ)X
@@ -168,14 +171,11 @@ def synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
     u0 = RANDOM_SAMPLE(theta, eps, r)
     xi = (RealCyclotomic10.Phi() ** (2 * m)) - (RealCyclotomic10.Tau() * N_i(u0))
     fl = EASY_FACTOR(xi)
-    # print("Factorization of xi:", fl)
     if EASY_SOLVABLE(fl):
       not_found = False
       tm = Cyclotomic10.Tau() ** m
       u = Cyclotomic10.Omega_(k) * (tm) * u0
       v = (tm) * solve_norm_equation(xi)
-  # print("u:", u)
-  # print("v:", v)
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
 
@@ -192,7 +192,7 @@ def test_synthesize_zx_rotation():
   print(f"Number of gates: {len(gates)}")
   print(f"Gate sequence: {gates}")
   eval_unitary = evaluate_gate_sequence(gates)
-  eval_matrix = eval_unitary.to_numpy
+  eval_matrix = eval_unitary.to_matrix
   actual_matrix = rz_mp(input) @ X()
   print("Evaluating gates: ", eval_unitary)
   print("As numpy matrix:\n", eval_matrix)
@@ -232,15 +232,15 @@ def test_approx_real():
 
 
 def test_synthesize_z_rotation():
-  input = 2 * mpmath.pi
-  epsilon = 1e-60
+  input = 2 * mpmath.pi / 100
+  epsilon = 1e-2
   gates, uni = synthesize_z_rotation(input, epsilon)
   print(f"Z-rotation circuit for φ = {input}:")
   print(f"Number of gates: {len(gates)}")
   print(f"Gate sequence: {gates}")
   eval_unitary = evaluate_gate_sequence(gates)
   print(eval_unitary == uni)
-  eval_matrix = eval_unitary.to_numpy
+  eval_matrix = eval_unitary.to_matrix
   actual_matrix = rz_mp(input)
   print("Evaluating gates: ", eval_unitary)
   print("As numpy matrix:\n", eval_matrix)

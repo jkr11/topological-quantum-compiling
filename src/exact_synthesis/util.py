@@ -1,7 +1,6 @@
 from exact_synthesis.exactUnitary import ExactUnitary
 import numpy as np
 from typing import Union, Tuple, Optional
-import math
 import mpmath
 from mpmath import mp
 

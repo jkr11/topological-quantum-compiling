@@ -2,7 +2,6 @@ import math
 import random
 from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N, N_tau, N_i
 from typing import List, Tuple, Union
-from itertools import product
 from exact_synthesis.util import CONSTANTS
 
 
@@ -23,7 +22,6 @@ def extended_fib_coefficients(n: int) -> Tuple[int, int]:
   return u, v
 
 
-# APPROX-REAL procedure
 def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
   print(f"APPROX_REAL with x={x}, n={n}")
   PREC = CONSTANTS.TAU ** (n - 1) * (1 - CONSTANTS.TAU**n)
@@ -47,17 +45,12 @@ def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
   return RealCyclotomic10(a, b)
 
 
-# RANDOM-SAMPLE procedure
 def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   assert r >= 1, f"r needs to be >= 1 but was {r}."
   PHI = CONSTANTS.PHI
   TAU = CONSTANTS.TAU
-  # print(f"RANDOM_SAMPLE with {theta}, {epsilon}, {r}")
   C: float = math.sqrt(CONSTANTS.PHI / (4 * r))
-  # print(f"C: {C}")
   m: int = math.ceil(math.log(C * epsilon * r, CONSTANTS.TAU)) + 1
-  # print(f"math.log(C * epsilon * r), {math.log(C * epsilon * r, TAU)}")
-  # print(f"m : {m}")
   N: int = math.ceil(CONSTANTS.PHI**m)
 
   sin_theta: float = math.sin(theta)
@@ -70,25 +63,19 @@ def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   xmax: float = r * PHI**m * ((1 - epsilon**2 / 2) * cos_theta - epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
   xc: float = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
 
-  # Random sampling
   j: int = random.randint(1, N - 1)
   y: float = ymin + j * (ymax - ymin) / N
 
-  # Step 11: Approximate y'
   y_prime: float = y / math.sqrt(2 - TAU)
   yy = APPROX_REAL(y_prime, m)
 
-  # Step 12: x calculation
   y_approx = (yy.evaluate()) * math.sqrt(2 - TAU)
   x = xc - (y_approx - ymin) * math.tan(theta)
 
-  # Step 13: Approximate x
   xx: RealCyclotomic10 = APPROX_REAL(x, m)
-  # ax, bx = xx.a, xx.b
-  # Step 14: Final return
+
   part1 = xx.to_cycl()
-  print(f"Part 1 : {part1}")
-  part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
+  part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))  # |w + w^4|^2 = tau - 2 => w + w^4 = 1j * sqrt(2 - tau)
 
   return part1 + part2
 
@@ -104,22 +91,6 @@ def is_square(n: int) -> Union[int, None]:
 
 def IS_PRIME(p: int) -> bool:
   return miller_rabin(p)
-
-  if p < 2:
-    return False
-  if p == 2 or p == 3:
-    return True
-  if p % 2 == 0 or p % 3 == 0:
-    return False
-
-  i = 5
-  w = 2
-  while i * i <= p:
-    if p % i == 0:
-      return False
-    i += w
-    w = 6 - w  # Alternate between adding 2 and 4 (check 6k ± 1)
-  return True
 
 
 def miller_rabin(n, k=7):
@@ -164,19 +135,14 @@ def easy_solvable_predicate(xi: RealCyclotomic10):
 
 def EASY_SOLVABLE(fl: List[Tuple[RealCyclotomic10, int]]) -> bool:
   for i in range(0, len(fl)):
-    # print("Fl: ", fl[i])
     xi, k = fl[i]
     if k % 2 == 1:
       if xi != RealCyclotomic10(5, 0):
-        # print("Xi: ", xi)
         p: int = N_tau(xi)
-        # print("P: ", p)
+
         r = p % 5
-        # print("R: ", r)
-        # print("Is prime: ", IS_PRIME(p))
-        # print("R not in [0, 1]: ", r not in [0, 1])
+
         if not IS_PRIME(p) or r not in [0, 1]:
-          # print("Not solvable")
           return False
   return True
 
@@ -239,11 +205,8 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
       a, b = a, a - b
       k = k + 1
     mu = a * b
-    # print(f"Current state: a={a}, b={b}, mu={mu}, k={k}")
   assert abs(mu) == 1, "Failed to reduce unit to base units"
 
-  # Complete set of base units in Z[τ]
-  # print("a, b: ", a, b)
   match (a, b):
     case (1, 0):  # 1
       pass
@@ -264,9 +227,8 @@ def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
     case (-1, 1):  # −(τ - 1) = −τ^(2)
       s *= -1
       k += 2
-    # Other edge cases can be added here
     case _:
-      pass  # Already in correct form
+      pass
   return (s, k)
 
 
@@ -321,12 +283,7 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
   return (r, p - r)
 
 
-# TODO: not sure if this works
-def splitting_root(xi: RealCyclotomic10):
-  def tau_norm_(s: RealCyclotomic10):
-    a, b = s.a, s.b
-    return a**2 - a * b - b**2
-
+def splitting_root(xi: RealCyclotomic10) -> Tuple[int, int]:
   def _mod_inv(b: int, p: int) -> int:
     return pow(b, -1, p)
 
@@ -338,6 +295,7 @@ def splitting_root(xi: RealCyclotomic10):
   return tonelli_shanks(n, p)
 
 
+# TODO: remove
 def unit_corresponding_to(k_inv: int) -> Cyclotomic10:
   k_inv = (k_inv % 5 + 5) % 5  # ensure 0 ≤ k_inv < 5
   if k_inv == 0:
@@ -352,6 +310,8 @@ def unit_corresponding_to(k_inv: int) -> Cyclotomic10:
   raise RuntimeError("No matching unit found for inverse mod 5")
 
 
+# TODO: this does not work in general, do not use
+@DeprecationWarning
 def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
   print("A: ", a)
   print("B: ", b)
@@ -392,6 +352,7 @@ def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, 
   return binary_gcd(c, d)
 
 
+# Returns the same as binary_gcd up to a multiplicative unit
 def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
   while b != Cyclotomic10.Zero():
     q, r = divmod(a, b)
@@ -415,7 +376,7 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
     if isinstance(xii, int):
       xii = RealCyclotomic10(xii, 0)
     m: int = fl[i][1]
-    x = x * (xii ** (m // 2))  # TODO: implement rmul and pow for ZTAU
+    x = x * (xii ** (m // 2))
     if m % 2 == 1:
       if xii.a == 5 and xii.b == 0:
         x = x * (RealCyclotomic10(1, 2))
@@ -424,16 +385,12 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
           x = x * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
         else:
           M: Tuple[int, int] = splitting_root(xii)
-          #          assert (RealCyclotomic10.from_int(M[0]) - (RealCyclotomic10(2, -1))) % xi == RealCyclotomic10.Zero(), "M^2 != 2 - tau % xi"
+
           y: Cyclotomic10 = gcd(xii.to_cycl(), Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
           u = xii.to_cycl() // N_i(y).to_cycl()  # TODO:
           s, m = UNIT_DLOG(u.to_subring())
-          # print("S, M: ", s, m)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
-          # print("X before mul: , ", x)
-          # print(f"X = {x} * tau^{m // 2} * {y}")
           x = x * (Cyclotomic10.Tau() ** (m // 2)) * y
-          # print("X in norm equation: ", x)
   return x
 
 

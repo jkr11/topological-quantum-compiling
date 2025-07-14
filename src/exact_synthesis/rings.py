@@ -8,9 +8,9 @@ from fractions import Fraction
 from typing import List, Tuple
 
 
-# @total_ordering
+#   @total_ordering
 class Cyclotomic10:
-  def __init__(self, c0, c1, c2, c3):
+  def __init__(self, c0: int, c1: int, c2: int, c3: int) -> None:
     self.c0: int = c0
     self.c1: int = c1
     self.c2: int = c2
@@ -19,7 +19,7 @@ class Cyclotomic10:
   def coeffs(self) -> List[int]:
     return [self.c0, self.c1, self.c2, self.c3]
 
-  def __mul__(self, other):
+  def __mul__(self, other) -> "Cyclotomic10":
     if isinstance(other, int):
       return self.__mul__(Cyclotomic10.from_int(other))
     elif isinstance(other, RealCyclotomic10):

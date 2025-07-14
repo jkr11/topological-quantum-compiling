@@ -17,31 +17,19 @@ class ExactUnitary:
     if left != RealCyclotomic10.One():
       raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1")
 
-  # @property
-  # def u(self):
-  #  return self.u
-
-  # @property
-  # def v(self):
-  #  return self.v
-
-  # @property
-  # def k(self):
-  #  return self.k
-
   @classmethod
-  def T(self):
+  def T(self) -> "ExactUnitary":
     return ExactUnitary(Cyclotomic10.One(), Cyclotomic10.Zero(), 6)
 
   @classmethod
-  def F(self):
+  def F(self) -> "ExactUnitary":
     return ExactUnitary(Cyclotomic10.Tau(), Cyclotomic10.One(), 0)
 
   @classmethod
-  def I(self):
+  def I(self) -> "ExactUnitary":
     return ExactUnitary(Cyclotomic10.One(), Cyclotomic10.Zero(), 5)
 
-  def __mul__(self, other):
+  def __mul__(self, other) -> "ExactUnitary":
     if other == self.I():
       return self
     elif self == self.I():
@@ -78,15 +66,11 @@ class ExactUnitary:
   def __hash__(self):
     return hash((self.u, self.v, self.k))
 
-  # def to_matrix(self) -> List[List[Cyclotomic10]]:
-  # TODO: need rmul for float? since we need sqrt(tau)
-  #  return [[
-  #      self.u, self.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
-  #  ]]
-  import mpmath
+  def to_numpy(self) -> np.ndarray:
+    return np.array(self.to_matrix, dtype=np.float256).reshape(2, 2)
 
   @cached_property
-  def to_numpy(self) -> np.ndarray:
+  def to_matrix(self):
     tau = (mpmath.sqrt(5) - 1) / 2  # τ ≈ 0.618033988749895
     sqrt_tau = mpmath.sqrt(tau)  # √τ ≈ 0.7861513777574233
 

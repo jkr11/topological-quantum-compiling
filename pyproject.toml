@@ -16,3 +16,15 @@ requires-python = ">=3.9"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
+
+
+[tool.ruff]
+indent-width = 2
+preview = true
+line-length = 200
+target-version = "py312"

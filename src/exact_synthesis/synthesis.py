@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from typing import List, Union
 import math
 from exact_synthesis.exactUnitary import ExactUnitary
-from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N_i, N, N_tau
+from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N_i
 from exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from exact_synthesis.util import CONSTANTS
+from exact_synthesis.util import trace_norm
+import numpy as np
+import mpmath
 
 
 @dataclass(frozen=True)
@@ -131,41 +133,22 @@ def G(u):
 
 
 def exact_synthesize(U: ExactUnitary) -> List[Gate]:
-  F = U.__class__.F()
-  T = U.__class__.T()
-  I = U.__class__.I()
   g = G(U)
   Ur = U
   C: List[Gate] = []
-  # print("Starting synthesis for U:", Ur)
   while g > 2:
-    # print("Current complexity:", g)
     min_complexity = math.inf
     J = 0
-    # argmin over FT^j * Ur
     for j in range(11):
       candidate = FT_power_table[j] * Ur
       gg = candidate.gauss_complexity()
-      # print(f"Checking FT^{j}: complexity: {gg}")
       if gg < min_complexity:
         min_complexity = gg
-        # print("Current best J:", j, "with complexity:", min_complexity)
         J = j
     Ur = FT_power_table[J] * Ur
     g = Ur.gauss_complexity()
     C.insert(0, TGate((10 - J) % 10))
     C.insert(0, FGate())
-  # print("Reduced to complexity 2, Ur:", Ur)
-  # Final matching to I * ω^k * T^j form
-  # for k in range(11):
-  #  for j in range(11):
-  #    t = I.omega_mul(k) * T**j
-  #    if t == Ur:
-  #      if j != 0:
-  #        C.insert(0, TGate(j))
-  #      if k != 0:
-  #        C.insert(0, WIGate(k))
-  #      return C
   if Ur in omega_k_T_j_table:
     k, j = omega_k_T_j_table[Ur]
     if j != 0:
@@ -176,9 +159,6 @@ def exact_synthesize(U: ExactUnitary) -> List[Gate]:
   raise ValueError("Final reduction failed")
 
 
-import mpmath
-
-
 def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   phi = mpmath.mpf(phi)
   eps = mpmath.mpf(eps)
@@ -186,16 +166,10 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
   TAU = (mpmath.sqrt(5) - 1) / 2
   C = mpmath.sqrt(PHI / 4)
 
-  print("C: ", C)
-  print("C * eps: ", C * eps)
-  print("log(C * eps): ", math.log(C * eps, CONSTANTS.TAU))
-  # m = math.ceil(math.log(C * eps, CONSTANTS.TAU)) + 1
   m = int(mpmath.ceil(mpmath.log(C * eps, TAU))) + 1
 
-  print("TAU ** m:", CONSTANTS.PHI**m)
-  print("m: ", m)
   theta = 0
-  for k in range(10):
+  for k in range(-10, 10):
     theta_candidate = -phi / 2 - math.pi * (k / 5)
     if 0 <= theta_candidate <= math.pi / 5:
       theta = theta_candidate
@@ -212,10 +186,8 @@ def synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
     if EASY_SOLVABLE(fl):
       not_found = False
       u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
-      ne = solve_norm_equation(xi)
-      v = (Cyclotomic10.Tau() ** m) * ne
-  print("u:", u)
-  print("v:", v)
+      v = (Cyclotomic10.Tau() ** m) * solve_norm_equation(xi)
+
   C = exact_synthesize(ExactUnitary(u, v, 0))
   return C
 
@@ -279,9 +251,6 @@ def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
     else:
       raise ValueError(f"Unknown gate type: {gate}")
   return U
-
-
-import numpy as np
 
 
 def rz(phi: float) -> np.ndarray:
@@ -353,8 +322,6 @@ def convert_ft_to_sigma(gates: List[Gate]) -> List[Gate]:
   return result
 
 
-from exact_synthesis.util import trace_norm
-
 if __name__ == "__main__":
   # U = ExactUnitary.F()
   # gates = exact_synthesize(U)
@@ -375,10 +342,10 @@ if __name__ == "__main__":
   print
   gates_seq = z_gates
   print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
-  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_numpy)
+  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_matrix)
   print("Actual z matrix:\n", rz(4 * math.pi / 1000))
   eval_unitary = evaluate_gate_sequence(gates_seq)
-  eval_matrix = eval_unitary.to_numpy
+  eval_matrix = eval_unitary.to_matrix
   actual_matrix = rz(4 * math.pi / 1000)
   print("Evaluating gates: ", eval_unitary)
   print("As numpy matrix:\n", eval_matrix)
