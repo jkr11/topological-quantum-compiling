@@ -1,4 +1,4 @@
-from exact_synthesis.exactUnitary import ExactUnitary
+from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
 import numpy as np
 from typing import Union, Tuple, Optional
 import mpmath

@@ -1,9 +1,9 @@
 import math
 import random
-from exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
+from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
 from typing import List, Tuple, Union
-from exact_synthesis.util import CONSTANTS
-from exact_synthesis.prec import APPROX_REAL, RANDOM_SAMPLE
+from single_qubit.exact_synthesis.util import CONSTANTS
+from single_qubit.exact_synthesis.prec import APPROX_REAL, RANDOM_SAMPLE
 
 
 def fibonacci(n: int) -> int:

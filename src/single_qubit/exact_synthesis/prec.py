@@ -1,9 +1,9 @@
-from exact_synthesis.rings import Cyclotomic10, ZTau
+from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau
 import mpmath
 from mpmath import mp
 import random
 from typing import List, Tuple
-from exact_synthesis.exactUnitary import ExactUnitary
+from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
 from mpmath import exp
 
 

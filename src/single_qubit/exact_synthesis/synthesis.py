@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Union
 import math
-from exact_synthesis.exactUnitary import ExactUnitary
-from exact_synthesis.rings import Cyclotomic10, ZTau, N_i
-from exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from exact_synthesis.util import trace_norm
+from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
+from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_i
+from single_qubit.exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
+from single_qubit.exact_synthesis.util import trace_norm
 import numpy as np
 import mpmath
 

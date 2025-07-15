@@ -1,4 +1,4 @@
-from exact_synthesis.rings import Cyclotomic10, np, cached_property, ZTau, N_i
+from single_qubit.exact_synthesis.rings import Cyclotomic10, np, cached_property, ZTau, N_i
 from typing import List
 import mpmath
 

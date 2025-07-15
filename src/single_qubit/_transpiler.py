@@ -1,4 +1,4 @@
-from exact_synthesis.exactUnitary import ExactUnitary
+from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
 import mpmath
 from typing import Union, List
 from qiskit.circuit.library import UnitaryGate
@@ -155,7 +155,7 @@ if __name__ == "__main__":
   B = braid_matrix(invert_braid(IW))
 
 
-  
+
   print(A)
   print(B)
   print(A @ B)
