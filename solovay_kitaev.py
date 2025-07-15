@@ -21,16 +21,6 @@ class Gate:
     return Gate(self.tensor.conj().T, list(reversed(self.name)))
 
 
-@dataclass
-class twoQubitCircuit:
-  gates: List[Gate]
-
-  def _eval_circuit(self):
-    init = np.eye(2, dtype=complex)
-    for gate in self.gates:
-      init @ gate[0]
-    return init
-
 
 def hgate() -> np.ndarray:
   return (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])

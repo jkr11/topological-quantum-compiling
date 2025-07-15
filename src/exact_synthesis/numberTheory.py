@@ -1,8 +1,9 @@
 import math
 import random
-from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10, N, N_tau, N_i
+from exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
 from typing import List, Tuple, Union
 from exact_synthesis.util import CONSTANTS
+from exact_synthesis.prec import APPROX_REAL, RANDOM_SAMPLE
 
 
 def fibonacci(n: int) -> int:
@@ -22,8 +23,8 @@ def extended_fib_coefficients(n: int) -> Tuple[int, int]:
   return u, v
 
 
-def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
-  print(f"APPROX_REAL with x={x}, n={n}")
+@DeprecationWarning
+def _APPROX_REAL(x: float, n: int) -> ZTau:
   PREC = CONSTANTS.TAU ** (n - 1) * (1 - CONSTANTS.TAU**n)
 
   p = fibonacci(n)
@@ -42,10 +43,11 @@ def APPROX_REAL(x: float, n: int) -> RealCyclotomic10:
   abs_b = abs(b)
   phi_pow_n = CONSTANTS.PHI**n
   assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
-  return RealCyclotomic10(a, b)
+  return ZTau(a, b)
 
 
-def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
+@DeprecationWarning
+def _RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   assert r >= 1, f"r needs to be >= 1 but was {r}."
   PHI = CONSTANTS.PHI
   TAU = CONSTANTS.TAU
@@ -67,12 +69,12 @@ def RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
   y: float = ymin + j * (ymax - ymin) / N
 
   y_prime: float = y / math.sqrt(2 - TAU)
-  yy = APPROX_REAL(y_prime, m)
+  yy = _APPROX_REAL(y_prime, m)
 
   y_approx = (yy.evaluate()) * math.sqrt(2 - TAU)
   x = xc - (y_approx - ymin) * math.tan(theta)
 
-  xx: RealCyclotomic10 = APPROX_REAL(x, m)
+  xx: ZTau = _APPROX_REAL(x, m)
 
   part1 = xx.to_cycl()
   part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))  # |w + w^4|^2 = tau - 2 => w + w^4 = 1j * sqrt(2 - tau)
@@ -126,18 +128,18 @@ def miller_rabin(n, k=7):
   return True
 
 
-def easy_solvable_predicate(xi: RealCyclotomic10):
+def easy_solvable_predicate(xi: ZTau):
   Nt = N_tau(xi)
   is_positive = xi > 0 and xi.automorphism() > 0
   is_prime = IS_PRIME(Nt) and (Nt % 5 == 1)
   return is_positive and is_prime
 
 
-def EASY_SOLVABLE(fl: List[Tuple[RealCyclotomic10, int]]) -> bool:
+def EASY_SOLVABLE(fl: List[Tuple[ZTau, int]]) -> bool:
   for i in range(0, len(fl)):
     xi, k = fl[i]
     if k % 2 == 1:
-      if xi != RealCyclotomic10(5, 0):
+      if xi != ZTau(5, 0):
         p: int = N_tau(xi)
 
         r = p % 5
@@ -147,14 +149,14 @@ def EASY_SOLVABLE(fl: List[Tuple[RealCyclotomic10, int]]) -> bool:
   return True
 
 
-def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
+def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
   if isinstance(xi, int):
-    xi = RealCyclotomic10(xi, 0)
+    xi = ZTau(xi, 0)
   a, b = xi.a, xi.b
   c = math.gcd(a, b)
   a1 = a // c
   b1 = b // c
-  xi1 = RealCyclotomic10(a1, b1)
+  xi1 = ZTau(a1, b1)
   ret = []
   d: int = is_square(c)
   if d is not None:
@@ -169,7 +171,7 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
   n = N_tau(xi1)
   if n % 5 == 0:
     xi2 = xi1.div_by_two_minus_tau()
-    ret.append((RealCyclotomic10(2, -1), 1))
+    ret.append((ZTau(2, -1), 1))
     ret.append((xi2, 1))
     return ret
   else:
@@ -177,7 +179,7 @@ def EASY_FACTOR(xi: RealCyclotomic10) -> List[Tuple[RealCyclotomic10, int]]:
     return ret
 
 
-def UNIT_DLOG(u: RealCyclotomic10) -> Tuple[int, int]:
+def UNIT_DLOG(u: ZTau) -> Tuple[int, int]:
   """
   Finds discrete logarithm of a unit u in Z[τ]
   Returns (s,k) such that u = s * τ^k where s = ±1
@@ -283,7 +285,7 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
   return (r, p - r)
 
 
-def splitting_root(xi: RealCyclotomic10) -> Tuple[int, int]:
+def splitting_root(xi: ZTau) -> Tuple[int, int]:
   def _mod_inv(b: int, p: int) -> int:
     return pow(b, -1, p)
 
@@ -312,12 +314,12 @@ def unit_corresponding_to(k_inv: int) -> Cyclotomic10:
 
 # TODO: this does not work in general, do not use
 @DeprecationWarning
-def binary_gcd(a: Union[Cyclotomic10, RealCyclotomic10], b: Union[Cyclotomic10, RealCyclotomic10]) -> Cyclotomic10:
+def binary_gcd(a: Union[Cyclotomic10, ZTau], b: Union[Cyclotomic10, ZTau]) -> Cyclotomic10:
   print("A: ", a)
   print("B: ", b)
-  if isinstance(a, RealCyclotomic10):
+  if isinstance(a, ZTau):
     a = a.to_cycl()
-  if isinstance(b, RealCyclotomic10):
+  if isinstance(b, ZTau):
     b = b.to_cycl()
 
   if a == Cyclotomic10.Zero():
@@ -361,7 +363,7 @@ def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
   return a
 
 
-def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
+def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
   """
   Outputs x \in Z[\omega] such that |x|² = xi \in Z[\tau]
   """
@@ -372,21 +374,24 @@ def solve_norm_equation(xi: RealCyclotomic10) -> Union[Cyclotomic10, str]:
     return "Unsolved"
   x: Cyclotomic10 = Cyclotomic10.One()
   for i in range(len(fl)):
-    xii: RealCyclotomic10 = fl[i][0]
+    xii: ZTau = fl[i][0]
     if isinstance(xii, int):
-      xii = RealCyclotomic10(xii, 0)
+      xii = ZTau(xii, 0)
     m: int = fl[i][1]
     x = x * (xii ** (m // 2))
     if m % 2 == 1:
       if xii.a == 5 and xii.b == 0:
-        x = x * (RealCyclotomic10(1, 2))
+        x = x * (ZTau(1, 2))
       else:
-        if xii == RealCyclotomic10(2, -1):
+        if xii == ZTau(2, -1):
           x = x * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
         else:
           M: Tuple[int, int] = splitting_root(xii)
 
-          y: Cyclotomic10 = gcd(xii.to_cycl(), Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)))
+          y: Cyclotomic10 = gcd(
+            xii.to_cycl(),
+            Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)),
+          )
           u = xii.to_cycl() // N_i(y).to_cycl()  # TODO:
           s, m = UNIT_DLOG(u.to_subring())
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
@@ -411,10 +416,10 @@ def main2():
   print(f"Prec: {PREC}")
   print(f"Approx : {c.evaluate()}")
 
-  test = RealCyclotomic10(2, -1)
+  test = ZTau(2, -1)
   print(test.div_by_two_minus_tau())
 
-  XI_Test = RealCyclotomic10(760, -780)
+  XI_Test = ZTau(760, -780)
   print(EASY_FACTOR(XI_Test))
 
   # u = RealCyclotomic10(2, -1)  # should be τ^-1
@@ -425,17 +430,17 @@ def main2():
   root1, root2 = tonelli_shanks(n, p)
   print(f"Square roots of {n} mod {p} are {root1} and {root2}")
 
-  print("Splitting root of (15 - 8t): ", splitting_root(RealCyclotomic10(15, -8)))
+  print("Splitting root of (15 - 8t): ", splitting_root(ZTau(15, -8)))
 
-  x = RealCyclotomic10(15, -8).to_cycl()
+  x = ZTau(15, -8).to_cycl()
   print(x)
   z = Cyclotomic10(15, 0, -8, 8)
   print(z)
   part = Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)
   print(part)
   print(part**2)
-  print("Part^2 = 2 - tau: ", part**2 == RealCyclotomic10(2, -1).to_cycl())
-  print("2-tau: ", RealCyclotomic10(2, -1).to_cycl())
+  print("Part^2 = 2 - tau: ", part**2 == ZTau(2, -1).to_cycl())
+  print("2-tau: ", ZTau(2, -1).to_cycl())
   y = Cyclotomic10(63, 0, 0, 0) - part
   print("Y: ", y)
 
@@ -458,7 +463,7 @@ def main2():
   print("Is unit: ", (g // Cyclotomic10(3, 2, -7, 7)).is_unit())
   print(solve_norm_equation(XI_Test))
   print("---------------------------")
-  print(EASY_SOLVABLE([(2, 2), (5, 1), (RealCyclotomic10(2, -1), 1), (RealCyclotomic10(15, -8), 1)]))
+  print(EASY_SOLVABLE([(2, 2), (5, 1), (ZTau(2, -1), 1), (ZTau(15, -8), 1)]))
   # for i in range(10):
   #  for j in range(10):
   #    for k in range(10):
@@ -479,39 +484,39 @@ def main2():
   #                (c2 * z).integer_remainder_mod_one_plus_omega() % 5)
 
 
-def mu(u: RealCyclotomic10) -> int:
+def mu(u: ZTau) -> int:
   a, b = u.a, u.b
   return a * b
 
 
 if __name__ == "__main__":
-  x = [(2, 2), (5, 1), (RealCyclotomic10(2, -1), 1), (RealCyclotomic10(15, -8), 1)]
+  x = [(2, 2), (5, 1), (ZTau(2, -1), 1), (ZTau(15, -8), 1)]
   XX = x
-  xi = RealCyclotomic10(760, -780)
+  xi = ZTau(760, -780)
   EF = EASY_FACTOR(xi)
   print("EASY_FACTOR: ", EF)
   print("EASY_SOLVABLE: ", EASY_SOLVABLE(EF))
   x = solve_norm_equation(xi)
   print("Solve norm equation: ", x)
-  ref = 2 * (RealCyclotomic10(4, 3).to_cycl()) * (Cyclotomic10(12, -20, 15, -3))
+  ref = 2 * (ZTau(4, 3).to_cycl()) * (Cyclotomic10(12, -20, 15, -3))
   print("X^2: ", N_i(x).evaluate())
   print("Reference: ", N_i(ref).evaluate())
   print("XI: ", xi.evaluate())
   print("XI / X^2", xi.evaluate() / N_i(x).evaluate())
   # exit(0)
-  print("Unit DLOG: ", UNIT_DLOG(RealCyclotomic10(1, 0)))
+  print("Unit DLOG: ", UNIT_DLOG(ZTau(1, 0)))
 
   xii = XX[3][0]  # RealCyclotomic10(15, -8)
   M = splitting_root(xii)
   print("Splitting root M: ", M[0], M[1])
   print("M^2: ", M[0] ** 2)
-  tau_minus_2 = RealCyclotomic10(-2, 1)
+  tau_minus_2 = ZTau(-2, 1)
 
   # Compute M^2 as an integer
   M_squared = M[0] ** 2
   xi = xii
   # Compute the difference as a RealCyclotomic10
-  diff = RealCyclotomic10(M_squared, 0) - tau_minus_2
+  diff = ZTau(M_squared, 0) - tau_minus_2
 
   # Now check if diff is divisible by xi
   q, r = divmod(diff.to_cycl(), xi.to_cycl())

@@ -1,4 +1,4 @@
-from exact_synthesis.rings import Cyclotomic10, np, cached_property, RealCyclotomic10, N_i
+from exact_synthesis.rings import Cyclotomic10, np, cached_property, ZTau, N_i
 from typing import List
 import mpmath
 
@@ -13,8 +13,8 @@ class ExactUnitary:
   def validate(self):
     norm_u_sq = N_i(self.u)
     norm_v_sq = N_i(self.v)
-    left = norm_u_sq + (RealCyclotomic10.Tau() * norm_v_sq)
-    if left != RealCyclotomic10.One():
+    left = norm_u_sq + (ZTau.Tau() * norm_v_sq)
+    if left != ZTau.One():
       raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1")
 
   @classmethod
@@ -67,14 +67,13 @@ class ExactUnitary:
     return hash((self.u, self.v, self.k))
 
   def to_numpy(self) -> np.ndarray:
-    return np.array(self.to_matrix, dtype=np.float256).reshape(2, 2)
+    return np.matrix(self.to_matrix.tolist(), dtype=np.complex128).reshape(2, 2)
 
   @cached_property
   def to_matrix(self):
     tau = (mpmath.sqrt(5) - 1) / 2  # τ ≈ 0.618033988749895
     sqrt_tau = mpmath.sqrt(tau)  # √τ ≈ 0.7861513777574233
 
-    # Compute ω^k: ω = e^(iπ/5), ω^k = e^(iπk/5) symbolically
     omega_k = Cyclotomic10.Omega() ** self.k
 
     u_val = self.u.evaluate()
@@ -105,6 +104,12 @@ class ExactUnitary:
 
   def gauss_complexity(self) -> int:
     return self.u.gauss_complexity().evaluate()
+
+  def conjugate(self):  # not sure if this is correct
+    return ExactUnitary(self.u.conjugate(), self.v.conjugate(), -self.k % 10)
+
+  def transpose(self):  # not sure if this is correct
+    return ExactUnitary(self.u, self.v * Cyclotomic10.Omega_(-self.k % 10), self.k)
 
   @classmethod
   def from_gates_string(self, gates: List[str]):

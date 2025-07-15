@@ -2,12 +2,11 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from exact_synthesis.rings import Cyclotomic10, RealCyclotomic10
+from exact_synthesis.rings import Cyclotomic10, ZTau
 from exact_synthesis.rings import *
-from exact_synthesis.numberTheory import solve_norm_equation, N_i
+from exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.exactUnitary import *
-from exact_synthesis.numberTheory import *
 
 # TODO: remove these
 Nomega = np.exp(1j * np.pi / 5)
@@ -50,9 +49,17 @@ class TestGaussComplexity(unittest.TestCase):
     self.assertTrue(num.gauss_complexity().evaluate() <= bound, f"Expected {num.gauss_complexity().evaluate()} <= {bound}")
 
 
+class TestEasyFactor(unittest.TestCase):
+  def test_paper_example(self):
+    solution = [(2, 2), (5, 1), (ZTau(2, -1), 1), (ZTau(15, -8), 1)]
+    xi = ZTau(760, -780)
+    EF = EASY_FACTOR(xi)
+    self.assertEqual(EF, solution)
+  
+
 class TestNormEquation(unittest.TestCase):
   def test_paper_example(self):
-    xi = RealCyclotomic10(760, -780)
+    xi = ZTau(760, -780)
     x = solve_norm_equation(xi)
     self.assertEqual(N_i(x), xi)
 
@@ -72,7 +79,7 @@ class TestCyclotomic10(unittest.TestCase):
     yy = N_i(y)
     print("yy: ", yy)
     x = Cyclotomic10(15, 0, -8, 8) // yy.to_cycl()
-    self.assertEqual(x.to_subring(), RealCyclotomic10(5, 3))
+    self.assertEqual(x.to_subring(), ZTau(5, 3))
 
 
 class TestExactUnitary(unittest.TestCase):
@@ -184,6 +191,14 @@ class TestExactUnitary(unittest.TestCase):
     S121 = sigma1_lhs * sigma2_lhs * sigma1_lhs
 
     self.assertEqual(F, I4 * S121)
+
+
+  def test_conjugate(self):
+    Fc = ExactUnitary.F().conjugate().transpose()
+    self.assertEqual(Fc, ExactUnitary.F())
+
+    sigma1ct = ExactUnitary.sigma1().transpose()
+    self.assertEqual(sigma1ct, ExactUnitary.sigma1())
 
 
 if __name__ == "__main__":
