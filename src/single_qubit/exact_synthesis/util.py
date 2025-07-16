@@ -29,15 +29,10 @@ def is_Rz(U: np.ndarray, tol: float = 1e-10) -> Tuple[bool, Optional[float]]:
   return True, theta
 
 
-def trace_norm(U: np.ndarray, V: Union[np.ndarray, ExactUnitary]) -> float:
-  if isinstance(V, np.ndarray):
-    return np.sqrt(1 - np.abs(np.trace(U @ V.conj().T)) / 2)
-  elif isinstance(V, ExactUnitary):
-    r, theta = is_Rz(U)
-    if r and V.k == 0:
-      return np.sqrt(1 - np.abs(np.real(V.u.evaluate() * np.exp(1j * theta / 2))))
-    else:
-      return trace_norm(U, V.to_matrix_np)
+def trace_norm(U: np.ndarray, V: np.ndarray) -> float:
+  trace = np.abs(np.trace(U @ V.conj().T))
+  print("Trace: ", trace)
+  return np.sqrt(1 - trace / 2)
 
 
 class Gates(object):
@@ -59,13 +54,3 @@ class Gates(object):
   swap = np.identity(4)[[0, 2, 1, 3]]
 
   CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
-
-
-if __name__ == "__main__":
-  # Example usage
-  mp.dps = 200
-  PHI = CONSTANTS.PHI
-  TAU = CONSTANTS.TAU
-
-  print("TAU**2", TAU**2)
-  print("TAU - 1 ", 1 - TAU)

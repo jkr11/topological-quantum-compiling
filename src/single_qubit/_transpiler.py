@@ -7,8 +7,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pyzx import Circuit as xzCircuit
-from scipy.optimize import minimize, minimize_scalar
-from .gates import Gates
+
 
 type mpmatrix = mpmath.matrices.matrices.matrix
 

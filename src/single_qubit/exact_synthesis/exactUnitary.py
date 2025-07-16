@@ -44,7 +44,10 @@ class ExactUnitary:
     return ExactUnitary(u3, v3, k + 5 % 10)
 
   def __matmul__(self, other):
-    return self.mul(other)
+    if isinstance(other, ExactUnitary):
+      return self.__mul__(other)
+    else:
+      raise ValueError("Can only mul with ExactUnitaries")
 
   def __rmul__(self, scalar):
     if isinstance(scalar, Cyclotomic10):

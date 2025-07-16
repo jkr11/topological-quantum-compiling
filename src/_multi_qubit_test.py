@@ -110,6 +110,10 @@ class AbstractCircuitTranspiler(abc.ABC):
     pass
 
 
+class qiskitCircuitTranspiler(AbstractCircuitTranspiler):
+  pass
+
+
 if __name__ == "__main__":
   A = braid_matrix(IW)
   B = braid_matrix(invert_braid(IW))

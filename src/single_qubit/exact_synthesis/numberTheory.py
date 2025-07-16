@@ -166,7 +166,7 @@ def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
     if d is not None:
       ret = [(d, 2), (5, 1)]
     else:
-      print("Equations is not going to be solvable")
+      # print("Equations is not going to be solvable")
       return [(xi1, 1)]
   n = N_tau(xi1)
   if n % 5 == 0:
