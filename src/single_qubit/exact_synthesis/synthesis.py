@@ -18,6 +18,7 @@ class TGate:
 
 @dataclass(frozen=True)
 class FGate:
+  power: int
   pass
 
 
@@ -89,8 +90,8 @@ def canonicalize_and_reduce_identities(gates: List[Gate]) -> List[Gate]:
 
 REWRITE_RULES = [
   ([WIGate(6), TGate(7)], [Sigma1(1)]),
-  ([WIGate(6), FGate(), TGate(7), FGate()], [Sigma2(1)]),
-  ([FGate()], [WIGate(4), Sigma1(1), Sigma2(1), Sigma1(1)]),
+  ([WIGate(6), FGate(1), TGate(7), FGate(1)], [Sigma2(1)]),
+  ([FGate(1)], [WIGate(4), Sigma1(1), Sigma2(1), Sigma1(1)]),
 ]
 
 
@@ -421,7 +422,7 @@ class ExactFibonacciSynthesizer:
       Ur = FT_power_table[J] * Ur
       g = Ur.gauss_complexity()
       C.insert(0, TGate((10 - J) % 10))
-      C.insert(0, FGate())
+      C.insert(0, FGate(1))
     if Ur in omega_k_T_j_table:
       k, j = omega_k_T_j_table[Ur]
       if j != 0:
