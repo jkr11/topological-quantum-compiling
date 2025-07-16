@@ -7,6 +7,8 @@ from single_qubit.exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR
 from single_qubit.exact_synthesis.util import trace_norm
 import numpy as np
 import mpmath
+from scipy.optimize import minimize, minimize_scalar
+from single_qubit.gates import Gates
 
 
 @dataclass(frozen=True)
@@ -86,9 +88,9 @@ def canonicalize_and_reduce_identities(gates: List[Gate]) -> List[Gate]:
 
 
 REWRITE_RULES = [
-  ([WIGate(6), TGate(7)], [Sigma1()]),
-  ([WIGate(6), FGate(), TGate(7), FGate()], [Sigma2()]),
-  ([FGate()], [WIGate(4), Sigma1(), Sigma2(), Sigma1()]),
+  ([WIGate(6), TGate(7)], [Sigma1(1)]),
+  ([WIGate(6), FGate(), TGate(7), FGate()], [Sigma2(1)]),
+  ([FGate()], [WIGate(4), Sigma1(1), Sigma2(1), Sigma1(1)]),
 ]
 
 
@@ -232,13 +234,71 @@ def __synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   return C
 
 
+def global_phase(U):
+  # determinant = e^{2i delta} => delta = 0.5 * arg(det)
+  det = np.linalg.det(U)
+  delta = np.angle(det) / 2
+  return delta
+
+
+def solve_beta(U00, tau=0.6180339887):
+  c = np.abs(U00) / tau
+  rhs = (c**2 - 1 - tau**2) / (2 * tau)
+
+  if np.abs(rhs) > 1:
+    raise ValueError("No real solution for beta — numerical instability or invalid tau/U00.")
+
+  beta = np.arccos(rhs)
+  return beta
+
+
+F = ExactUnitary.F().to_numpy()
+
+
+def _decompose_U(U, tol=1e-12):
+  delta = global_phase(U)
+  U_prime = U * np.exp(-1j * delta)  # remove global phase
+  print(np.linalg.det(U_prime))
+  if np.abs(U_prime[0, 0]) > tol:
+    U00 = U_prime[0, 0]
+    beta = solve_beta(U00)
+
+    def error_func(params):
+      alpha, gamma = params
+      M = Gates.Rz(alpha) @ F @ Gates.Rz(beta) @ F @ Gates.Rz(gamma)
+      return np.linalg.norm(M - U_prime) / np.linalg.norm(U_prime)
+
+    res2 = minimize(
+      error_func,
+      [0, 0],
+      bounds=[(-2 * np.pi, 2 * np.pi), (-2 * np.pi, 2 * np.pi)],
+    )
+    alpha, gamma = res2.x
+
+    return {
+      "delta": delta,
+      "alpha": alpha,
+      "beta": beta,
+      "gamma": gamma,
+      "form": "Rz-F-Rz-F-Rz",
+    }
+  else:
+    # zero upper-left entry case
+    X = Gates.X()
+    Rz_phi = U_prime @ X
+    diag = np.diag(Rz_phi)
+    phi = np.angle(0.5 * diag[0])
+
+    return {"delta": delta, "phi": phi, "form": "Rz-X"}
+
+
 class ExactFibonacciSynthesizer:
   decimals: int
   TAU = (mpmath.sqrt(5) - 1) / 2
   PHI = TAU + 1
 
   @classmethod
-  def __G(u: ExactUnitary):
+  def __G(cls, u: ExactUnitary):
     return u.gauss_complexity()
 
   @classmethod
@@ -263,13 +323,17 @@ class ExactFibonacciSynthesizer:
     theta = None
     k_final = None
 
+    pi_over_5 = math.pi / 5
+
     for k in range(-10, 10):  # is solving here faster?
       theta_candidate = -phi / 2 - math.pi * (k / 5)
-      if 0 <= theta_candidate <= math.pi / 5:
+      if 0 <= theta_candidate <= pi_over_5:
         theta = theta_candidate
+        print("MATH PI/5", math.pi / 5)
+        print("THETA: ", theta)
         k_final = k
         break
-    assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
+    # assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
     if theta is None:
       raise ValueError("Failed to find suitable k.")
 
@@ -296,8 +360,9 @@ class ExactFibonacciSynthesizer:
     return ExactUnitary(u, v, 0)
 
   @classmethod
-  def synthesize_z_rotation(cls, phi, eps) -> List[Gate]:
-    return cls._synthesize_z_rotation(phi, eps)
+  def synthesize_z_rotation(cls, phi, eps) -> ExactUnitary:
+    EU = cls._synthesize_z_rotation(phi, eps)
+    return EU
 
   @classmethod
   def _exact_synthesize(cls, U: ExactUnitary) -> List[Gate]:
@@ -325,6 +390,18 @@ class ExactFibonacciSynthesizer:
         C.insert(0, WIGate(k))
       return C
     raise ValueError("Final reduction failed")
+
+  @classmethod
+  def synthesize_unitary(cls, U: np.ndarray, epsilon: float):
+    state = _decompose_U(U)
+    if state["form"] == "Rz-F-Rz-F-Rz":
+      phase = state["delta"]
+      decomp1 = cls.synthesize_z_rotation(state["alpha"], epsilon)
+      print("D1: ", decomp1.to_numpy())
+      print("Actual: ", Gates.Rz(state["alpha"]))
+      decomp2 = cls.synthesize_z_rotation(state["beta"], epsilon)
+      decomp3 = cls.synthesize_z_rotation(state["gamma"], epsilon)
+      return phase, decomp1 + ExactUnitary.F() + decomp2 + ExactUnitary.F() + decomp3
 
 
 def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
@@ -414,29 +491,26 @@ def transpile_ft_sigma(gates: List[Gate]) -> List[Gate]:
   return result
 
 
+def reconstruct_from_params(params):
+  if params["form"] == "Rz-X":
+    return np.exp(1j * params["delta"]) * Gates.Rz(params["phi"]) @ Gates.X()
+  elif params["form"] == "Rz-F-Rz-F-Rz":
+    delta = params["delta"]
+    alpha = params["alpha"]
+    beta = params["beta"]
+    gamma = params["gamma"]
+    return np.exp(1j * delta) * Gates.Rz(alpha) @ F @ Gates.Rz(beta) @ F @ Gates.Rz(gamma)
+
+
 if __name__ == "__main__":
+  mpmath.mp.dps = 200
   phi = 4 * math.pi / 1000
-  epsilon = 1e-7
-  z_gates = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
-  print("Z-rotation circuit for φ = π/10:")
-  print(f"Number of gates: {len(z_gates)}")
-  print(f"Gate sequence: {z_gates}")
-  print
-  gates_seq = z_gates
-  print("Evaluating gates: ", evaluate_gate_sequence(gates_seq))
-  print("As numpy matrix:\n", evaluate_gate_sequence(gates_seq).to_matrix)
-  print("Actual z matrix:\n", rz(4 * math.pi / 1000))
-  eval_unitary = evaluate_gate_sequence(gates_seq)
-  eval_matrix = eval_unitary.to_matrix
-  actual_matrix = rz(4 * math.pi / 1000)
-  print("Evaluating gates: ", eval_unitary)
-  print("As numpy matrix:\n", eval_matrix)
-  print("Actual z matrix:\n", actual_matrix)
-  # Check if the matrices are close within a given tolerance
-  tol = 1e-5  # or whatever accuracy you want
-  norm = trace_norm(np.array(eval_matrix).reshape(2, 2), actual_matrix)
-  print(f"Trace norm between evaluated and actual: {norm}")
-  if norm < tol:
-    print("PASS: The evaluated matrix is within the desired accuracy.")
-  else:
-    print("FAIL: The evaluated matrix is NOT within the desired accuracy.")
+  epsilon = 1e-10
+  U = Gates.H
+  state = _decompose_U(U)
+  print(reconstruct_from_params(state))
+  phase, gates = ExactFibonacciSynthesizer.synthesize_unitary(U, epsilon)
+  print(gates)
+  print(np.exp(1j * phase))
+  print(evaluate_gate_sequence(gates).to_numpy())
+  print(U)

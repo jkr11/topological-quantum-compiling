@@ -1,6 +1,6 @@
 import argparse
 import mpmath
-from src.exact_synthesis.prec import synthesize_z_rotation, synthesize_zx_rotation
+from single_qubit.exact_synthesis.prec import synthesize_z_rotation, synthesize_zx_rotation
 
 
 def main():
