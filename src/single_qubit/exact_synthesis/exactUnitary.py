@@ -69,8 +69,11 @@ class ExactUnitary:
   def __hash__(self):
     return hash((self.u, self.v, self.k))
 
-  def to_numpy(self) -> np.ndarray:
-    return np.matrix(self.to_matrix.tolist(), dtype=np.complex128).reshape(2, 2)
+  def to_numpy(self, threshold: float = None) -> np.ndarray:
+    matrix = np.matrix(self.to_matrix.tolist(), dtype=np.complex256).reshape(2, 2)
+    if threshold:
+      matrix[np.abs(matrix) < threshold] = 0
+    return matrix
 
   @cached_property
   def to_matrix(self):

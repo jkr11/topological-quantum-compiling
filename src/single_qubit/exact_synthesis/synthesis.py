@@ -567,12 +567,20 @@ def d_zx(phi, U: ExactUnitary):
 
 
 if __name__ == "__main__":
-  mpmath.mp.dps = 800
-  phi = 2 * math.pi
-  epsilon = 1e-30
+  mpmath.mp.dps = 400
+  phi = 4 * math.pi / 1000
+  epsilon = 1e-70
 
-  #g = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
-  #print(d_z(phi, g))
+  # g = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
+  # print(d_z(phi, g))
 
   gX = ExactFibonacciSynthesizer.synthesize_zx_rotation(phi, epsilon)
   print(d_zx(phi, gX))
+
+  gXnp = gX.to_numpy(1e-10)
+  actual = Gates.Rz(phi) @ Gates.X
+  print("Approximation: ", gXnp)
+  print("Actual matrix: ", actual)
+
+  circ = ExactFibonacciSynthesizer._exact_synthesize(gX)
+  print(len(circ))
