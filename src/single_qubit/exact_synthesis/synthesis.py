@@ -219,7 +219,7 @@ def __synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   v = 0
   not_found = True
   while not_found:
-    u0 = RANDOM_SAMPLE(theta, eps, 1.0)
+    u0 = RANDOM_SAMPLE(theta, eps, r)
     xi = (ZTau.Phi() ** (2 * m)) - ZTau.Tau() * N_i(u0)
     fl = EASY_FACTOR(xi)
     print("Factorization of xi:", fl)
@@ -329,8 +329,8 @@ class ExactFibonacciSynthesizer:
       theta_candidate = -phi / 2 - math.pi * (k / 5)
       if 0 <= theta_candidate <= pi_over_5:
         theta = theta_candidate
-        print("MATH PI/5", math.pi / 5)
-        print("THETA: ", theta)
+        # print("MATH PI/5", math.pi / 5)
+        # print("THETA: ", theta)
         k_final = k
         break
     # assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
@@ -349,7 +349,7 @@ class ExactFibonacciSynthesizer:
       fl = EASY_FACTOR(xi)
 
       if EASY_SOLVABLE(fl):
-        print("FOUND SOLUTION")
+        # print("FOUND SOLUTION")
         not_found = False
 
         u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** (m)) * u0
@@ -357,6 +357,46 @@ class ExactFibonacciSynthesizer:
         v = (Cyclotomic10.Tau() ** (m)) * solve_norm_equation(xi)
 
     # C = exact_synthesize(ExactUnitary(u, v, 0))
+    return ExactUnitary(u, v, 0)
+
+  @classmethod
+  def synthesize_zx_rotation(cls, phi, eps) -> ExactUnitary:
+    """
+    approximating Rz (φ)X
+    by an 〈F, T 〉-circuit with O(log(1/ε)) gates and
+    precision at most ε. Runtime is probabilistic polynomial
+    as a function of log(1/ε).
+    """
+    phi = mpmath.mpf(phi)
+    eps = mpmath.mpf(eps)
+    TAU = (mpmath.sqrt(5) - 1) / 2
+    PHI = TAU + 1
+    r = mpmath.sqrt(PHI)
+    C = mpmath.sqrt(PHI / (4 * r))
+    m = int(mpmath.ceil(mpmath.log(C * eps * r, TAU))) + 1
+    theta = None
+    k = None
+    for kk in range(-11, 11):
+      theta_candidate = phi / 2 + math.pi / 2 - math.pi * (kk / 5)
+      if 0 <= theta_candidate <= math.pi / 5:
+        theta = theta_candidate
+        k = kk
+        break
+    assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
+    u = Cyclotomic10.Zero()
+    v = Cyclotomic10.Zero()
+    not_found = True
+    while not_found:
+      u0 = RANDOM_SAMPLE(theta, eps, r)
+      xi = (ZTau.Phi() ** (2 * m)) - ZTau.Tau() * N_i(u0)
+      fl = EASY_FACTOR(xi)
+
+      if EASY_SOLVABLE(fl):
+        not_found = False
+        v = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
+        ne = solve_norm_equation(xi)
+        u = (Cyclotomic10.Tau() ** m) * ne
+
     return ExactUnitary(u, v, 0)
 
   @classmethod
@@ -395,13 +435,20 @@ class ExactFibonacciSynthesizer:
   def synthesize_unitary(cls, U: np.ndarray, epsilon: float):
     state = _decompose_U(U)
     if state["form"] == "Rz-F-Rz-F-Rz":
-      phase = state["delta"]
-      decomp1 = cls.synthesize_z_rotation(state["alpha"], epsilon)
-      print("D1: ", decomp1.to_numpy())
-      print("Actual: ", Gates.Rz(state["alpha"]))
-      decomp2 = cls.synthesize_z_rotation(state["beta"], epsilon)
-      decomp3 = cls.synthesize_z_rotation(state["gamma"], epsilon)
-      return phase, decomp1 + ExactUnitary.F() + decomp2 + ExactUnitary.F() + decomp3
+      delta = state["delta"]
+      alpha = state["alpha"]
+      beta = state["beta"]
+      gamma = state["gamma"]
+      decomp1 = cls.synthesize_z_rotation(alpha, epsilon)
+      # print("D1: ", decomp1.to_numpy())
+      # print("Actual: ", Gates.Rz(alpha))
+      decomp2 = cls.synthesize_z_rotation(beta, epsilon)
+      # print("D2: ", decomp2.to_numpy())
+      # print("Actual2: ", Gates.Rz(beta))
+      decomp3 = cls.synthesize_z_rotation(gamma, epsilon)
+      # print("D3: ", decomp3.to_numpy)
+      # print("Actual 3: ", Gates.Rz(gamma))
+      return delta, decomp1 * ExactUnitary.F() * decomp2 * ExactUnitary.F() * decomp3, [decomp1.to_numpy(), decomp2.to_numpy(), decomp3.to_numpy()]
 
 
 def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
@@ -497,20 +544,35 @@ def reconstruct_from_params(params):
   elif params["form"] == "Rz-F-Rz-F-Rz":
     delta = params["delta"]
     alpha = params["alpha"]
+    # print(alpha)
     beta = params["beta"]
+    # print(beta)
     gamma = params["gamma"]
+    # print(gamma)
+    # rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
+    # rzb = ExactFibonacciSynthesizer.synthesize_z_rotation(beta, 1e-10)
+    # rzg = ExactFibonacciSynthesizer.synthesize_z_rotation(gamma, 1e-10)
     return np.exp(1j * delta) * Gates.Rz(alpha) @ F @ Gates.Rz(beta) @ F @ Gates.Rz(gamma)
 
 
+def d_z(phi, U: ExactUnitary):
+  phi = mpmath.mpf(phi)
+  return mpmath.sqrt(1 - abs((U.u.evaluate() * mpmath.exp(1j * phi / 2)).real))
+
+
+def d_zx(phi, U: ExactUnitary):
+  phi = mpmath.mpf(phi)
+  TAU = (mpmath.sqrt(5) - 1) / 2
+  return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs((U.v.evaluate() * mpmath.exp(-1j * (phi / 2 * mpmath.pi / 2))).real))
+
+
 if __name__ == "__main__":
-  mpmath.mp.dps = 200
-  phi = 4 * math.pi / 1000
-  epsilon = 1e-10
-  U = Gates.H
-  state = _decompose_U(U)
-  print(reconstruct_from_params(state))
-  phase, gates = ExactFibonacciSynthesizer.synthesize_unitary(U, epsilon)
-  print(gates)
-  print(np.exp(1j * phase))
-  print(evaluate_gate_sequence(gates).to_numpy())
-  print(U)
+  mpmath.mp.dps = 800
+  phi = 2 * math.pi
+  epsilon = 1e-30
+
+  #g = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
+  #print(d_z(phi, g))
+
+  gX = ExactFibonacciSynthesizer.synthesize_zx_rotation(phi, epsilon)
+  print(d_zx(phi, gX))
