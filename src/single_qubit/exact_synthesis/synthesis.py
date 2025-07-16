@@ -563,7 +563,7 @@ def d_z(phi, U: ExactUnitary):
 def d_zx(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
   TAU = (mpmath.sqrt(5) - 1) / 2
-  return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs((U.v.evaluate() * mpmath.exp(-1j * (phi / 2 * mpmath.pi / 2))).real))
+  return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs((U.v.evaluate() * mpmath.exp(-1j * (phi / 2 + mpmath.pi / 2))).real))
 
 
 if __name__ == "__main__":
