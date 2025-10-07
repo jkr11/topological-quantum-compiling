@@ -1,4 +1,6 @@
-from single_qubit.exact_synthesis.rings import Cyclotomic10, np, cached_property, ZTau, N_i
+from functools import cached_property
+from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_i
+import numpy as np
 from typing import List
 import mpmath
 
@@ -10,7 +12,7 @@ class ExactUnitary:
     self.k: int = k % 10
     self.validate()
 
-  def validate(self):
+  def validate(self) -> None:
     norm_u_sq = N_i(self.u)
     norm_v_sq = N_i(self.v)
     left = norm_u_sq + (ZTau.Tau() * norm_v_sq)
@@ -43,20 +45,20 @@ class ExactUnitary:
     k = (other.k + self.k) % 10
     return ExactUnitary(u3, v3, k + 5 % 10)
 
-  def __matmul__(self, other):
-    if isinstance(other, ExactUnitary):
+  def __matmul__(self, other) -> "ExactUnitary":
+    if not isinstance(other, ExactUnitary):
+      raise ValueError(f"Can only @ with ExactUnitary, got {type(other)}")
+    else:
       return self.__mul__(other)
-    else:
-      raise ValueError("Can only mul with ExactUnitaries")
 
-  def __rmul__(self, scalar):
-    if isinstance(scalar, Cyclotomic10):
-      return self.scalar_mul_left(scalar)
-    else:
-      raise TypeError("Left multiplication only supports Cyclotomic10 scalars")
+  # def __rmul__(self, scalar):
+  #   if isinstance(scalar, Cyclotomic10):
+  #     return self.scalar_mul_left(scalar)
+  #   else:
+  #     raise TypeError("Left multiplication only supports Cyclotomic10 scalars")
 
-  def _left_mul_scalar(self, scalar: Cyclotomic10):
-    return ExactUnitary(self.u * scalar, self.v * scalar, self.k)
+  # def _left_mul_scalar(self, scalar: Cyclotomic10):
+  #   return ExactUnitary(self.u * scalar, self.v * scalar, self.k)
 
   def omega_mul(self, k: int):
     """Multiply this unitary by ω^k according to w^s * U[u,v,k] = U[uw^s,vw^s,k + 2s]"""
@@ -77,8 +79,8 @@ class ExactUnitary:
 
   @cached_property
   def to_matrix(self):
-    tau = (mpmath.sqrt(5) - 1) / 2  # τ ≈ 0.618033988749895
-    sqrt_tau = mpmath.sqrt(tau)  # √τ ≈ 0.7861513777574233
+    tau = (mpmath.sqrt(5) - 1) / 2
+    sqrt_tau = mpmath.sqrt(tau)
 
     omega_k = Cyclotomic10.Omega() ** self.k
 
@@ -94,27 +96,33 @@ class ExactUnitary:
 
     return mpmath.matrix([[entry11, entry12], [entry21, entry22]], dtype=complex)
 
-  def __pow__(self, k: int):
-    if k == 0:
-      return ExactUnitary.I()
-    basis = self
-    rhs = self
-    for i in range(1, k):
-      basis = basis * rhs
-    return basis
+  def __pow__(self, k: int) -> "ExactUnitary":
+    if not isinstance(k, int):
+      raise ValueError(f"exponent has to be integer, was {type(k)}")
+    elif k < 0:
+      raise ValueError(f"exponent has to be positive integer, was {k}")
+    else:
+      if k == 0:
+        return ExactUnitary.I()
+      basis = self
+      rhs = self
+      for i in range(1, k):
+        basis = basis * rhs
+      return basis
 
-  def __eq__(self, other):
+  def __eq__(self, other) -> bool:
     if isinstance(other, ExactUnitary):
       return self.u == other.u and self.v == other.v and self.k == other.k % 10
-    return False
+    else:
+      raise ValueError(f"Can only compare ExactUnitary to ExactUnitary, but was {type(other)}")
 
   def gauss_complexity(self) -> int:
     return self.u.gauss_complexity().evaluate()
 
-  def conjugate(self):  # not sure if this is correct
+  def conjugate(self):
     return ExactUnitary(self.u.conjugate(), self.v.conjugate(), -self.k % 10)
 
-  def transpose(self):  # not sure if this is correct
+  def transpose(self):
     return ExactUnitary(self.u, self.v * Cyclotomic10.Omega_(-self.k % 10), self.k)
 
   @classmethod
@@ -130,20 +138,20 @@ class ExactUnitary:
     return unitary
 
   def __repr__(self):
-    return f"U{str(self.u), str(self.v), self.k}"  # {self.to_numpy}"
+    return f"U{str(self.u), str(self.v), self.k}"
 
   @classmethod
   def sigma1(self):
     """
     Returns sigma1 as an exact unitary from the <F,T> circuit (wI)^6 T^7
     """
-    wI = self.I().omega_mul(6)
-    return wI * (self.T() ** 7)
+    wI6 = self.I().omega_mul(6)
+    return wI6 @ (self.T() ** 7)
 
   @classmethod
   def sigma2(self):
     """
-    Returns sigma2 as an exact unitary
+    Returns sigma2 as an exact unitary (wI)^6 F T^7 F
     """
-    wI = self.I().omega_mul(6)
-    return wI * self.F() * self.T() ** 7 * self.F()
+    wI6 = self.I().omega_mul(6)
+    return wI6 @ self.F() @ (self.T() ** 7) @ self.F()
