@@ -3,6 +3,7 @@ from typing import List
 from single_qubit._transpiler import Fibonacci, Unitary
 import numpy as np
 from abc import abstractmethod
+from qiskit import QuantumCircuit
 import abc
 
 
@@ -95,7 +96,8 @@ IW = [
 @dataclass
 class Gate:
   matrix: Unitary
-  nqbits: int
+  index: int
+  nqubits: int
 
 
 @dataclass
@@ -110,8 +112,19 @@ class AbstractCircuitTranspiler(abc.ABC):
     pass
 
 
-class qiskitCircuitTranspiler(AbstractCircuitTranspiler):
-  pass
+# class QiskitToFibTranspiler:
+#  @classmethod
+#  def transpile(self, circ : QuantumCircuit):
+#    for instr, qargs, cargs in circ.data:
+
+
+class FibToQiskitTranspiler(AbstractCircuitTranspiler):
+  @classmethod
+  def translate(self, circuit: Circuit):
+    n = circuit.nqubits
+    qc = QuantumCircuit(n)
+    for gate in circuit.gates:
+      pass
 
 
 if __name__ == "__main__":

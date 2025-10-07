@@ -22,10 +22,3 @@ pythonpath = ["src"]
 dev = [
     "ipykernel>=6.29.5",
 ]
-
-
-[tool.ruff]
-indent-width = 2
-preview = true
-line-length = 150
-target-version = "py312"

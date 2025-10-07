@@ -48,8 +48,7 @@ class ExactUnitary:
   def __matmul__(self, other) -> "ExactUnitary":
     if not isinstance(other, ExactUnitary):
       raise ValueError(f"Can only @ with ExactUnitary, got {type(other)}")
-    else:
-      return self.__mul__(other)
+    return self.__mul__(other)
 
   # def __rmul__(self, scalar):
   #   if isinstance(scalar, Cyclotomic10):
@@ -99,16 +98,15 @@ class ExactUnitary:
   def __pow__(self, k: int) -> "ExactUnitary":
     if not isinstance(k, int):
       raise ValueError(f"exponent has to be integer, was {type(k)}")
-    elif k < 0:
+    if k < 0:
       raise ValueError(f"exponent has to be positive integer, was {k}")
-    else:
-      if k == 0:
-        return ExactUnitary.I()
-      basis = self
-      rhs = self
-      for i in range(1, k):
-        basis = basis * rhs
-      return basis
+    if k == 0:
+      return ExactUnitary.I()
+    basis = self
+    rhs = self
+    for i in range(1, k):
+      basis = basis * rhs
+    return basis
 
   def __eq__(self, other) -> bool:
     if isinstance(other, ExactUnitary):

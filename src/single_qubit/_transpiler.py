@@ -57,12 +57,12 @@ def gate_to_operator(gates: List[Gate]) -> List[Unitary]:
   return output
 
 
-type Circuit = List[Unitary]
+type SingleCircuit = List[Unitary]
 
 
 class SingleQbitTranspiler(ABC):
   @abstractmethod
-  def translate(self, circuit: Circuit):
+  def translate(self, circuit: SingleCircuit):
     pass
 
 
@@ -70,7 +70,7 @@ class QiskitTranspiler(SingleQbitTranspiler):
   @classmethod
   def translate(self, circuit) -> QuantumCircuit:
     qc = QuantumCircuit(1)  # TODO: n_qubits
-
+    circuit = gate_to_operator(circuit)
     for gate in circuit:
       u_gate = UnitaryGate(np.asarray(gate.matrix), label=gate.name)
       for i in range(gate.power):
@@ -84,7 +84,7 @@ class XZTranspiler(SingleQbitTranspiler):
 
 
 if __name__ == "__main__":
-  from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
+  from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer, evaluate_gate_sequence, norm
 
   mpmath.mp.dps = 200
   phi = 4 * mpmath.pi / 1000
@@ -99,6 +99,7 @@ if __name__ == "__main__":
   print(unit)
   from single_qubit.gates import Gates
   from single_qubit.exact_synthesis.synthesis import d_z
-  print(Gates.Rz(float(phi)))
-  print(d_z(phi, EU))
 
+  print(evaluate_gate_sequence(gates).to_numpy())
+  print(Gates.Rz(float(phi)))
+  # print(d_z(phi, EU))

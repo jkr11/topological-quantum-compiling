@@ -23,65 +23,6 @@ def extended_fib_coefficients(n: int) -> Tuple[int, int]:
   return u, v
 
 
-@DeprecationWarning
-def _APPROX_REAL(x: float, n: int) -> ZTau:
-  PREC = CONSTANTS.TAU ** (n - 1) * (1 - CONSTANTS.TAU**n)
-
-  p = fibonacci(n)
-  q = fibonacci(n + 1)
-  u = (-1) ** (n + 1) * p
-  v = (-1) ** n * fibonacci(n - 1)
-
-  assert u * p + v * q == 1
-
-  c = round(x * q)
-  a = c * v + p * round((c * u) / q)
-  b = c * u - q * round((c * u) / q)
-
-  approx = a + b * CONSTANTS.TAU
-  abs_diff = abs(x - approx)
-  abs_b = abs(b)
-  phi_pow_n = CONSTANTS.PHI**n
-  assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
-  return ZTau(a, b)
-
-
-@DeprecationWarning
-def _RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
-  assert r >= 1, f"r needs to be >= 1 but was {r}."
-  PHI = CONSTANTS.PHI
-  TAU = CONSTANTS.TAU
-  C: float = math.sqrt(CONSTANTS.PHI / (4 * r))
-  m: int = math.ceil(math.log(C * epsilon * r, CONSTANTS.TAU)) + 1
-  N: int = math.ceil(CONSTANTS.PHI**m)
-
-  sin_theta: float = math.sin(theta)
-  cos_theta: float = math.cos(theta)
-
-  sqrt_expr: float = math.sqrt(4 - epsilon**2)
-  ymin: float = r * CONSTANTS.PHI**m * (sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
-  ymax: float = r * PHI**m * (sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
-
-  xmax: float = r * PHI**m * ((1 - epsilon**2 / 2) * cos_theta - epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
-  xc: float = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
-
-  j: int = random.randint(1, N - 1)
-  y: float = ymin + j * (ymax - ymin) / N
-
-  y_prime: float = y / math.sqrt(2 - TAU)
-  yy = _APPROX_REAL(y_prime, m)
-
-  y_approx = (yy.evaluate()) * math.sqrt(2 - TAU)
-  x = xc - (y_approx - ymin) * math.tan(theta)
-
-  xx: ZTau = _APPROX_REAL(x, m)
-
-  part1 = xx.to_cycl()
-  part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))  # |w + w^4|^2 = tau - 2 => w + w^4 = 1j * sqrt(2 - tau)
-
-  return part1 + part2
-
-
 def is_square(n: int) -> Union[int, None]:
   if n < 0:
     return None
@@ -95,10 +36,7 @@ def IS_PRIME(p: int) -> bool:
   return miller_rabin(p)
 
 
-def miller_rabin(n, k=7):
-  """Use Miller-Rabin primality test to check if n is prime.
-  k is number of accuracy rounds.
-  """
+def miller_rabin(n: int, k: int = 10) -> bool:
   if n < 2:
     return False
 
@@ -141,9 +79,7 @@ def EASY_SOLVABLE(fl: List[Tuple[ZTau, int]]) -> bool:
     if k % 2 == 1:
       if xi != ZTau(5, 0):
         p: int = N_tau(xi)
-
         r = p % 5
-
         if not IS_PRIME(p) or r not in [0, 1]:
           return False
   return True
@@ -166,7 +102,6 @@ def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
     if d is not None:
       ret = [(d, 2), (5, 1)]
     else:
-      # print("Equations is not going to be solvable")
       return [(xi1, 1)]
   n = N_tau(xi1)
   if n % 5 == 0:
@@ -184,6 +119,7 @@ def UNIT_DLOG(u: ZTau) -> Tuple[int, int]:
   Finds discrete logarithm of a unit u in Z[τ]
   Returns (s,k) such that u = s * τ^k where s = ±1
   """
+  # TODO: assert unit
   a, b = u.a, u.b
   s, k = 1, 0
 
@@ -258,7 +194,6 @@ def tonelli_shanks(n: int, p: int) -> Tuple[int, int]:
     r: int = pow(n, ((p + 1) // 4), p)
     return (r, p - r)
 
-  # By randomized trial, find a quadratic residue z.
   z: int = 2
   while legendre_symbol(z, p) != p - 1:
     z += 1
@@ -297,75 +232,17 @@ def splitting_root(xi: ZTau) -> Tuple[int, int]:
   return tonelli_shanks(n, p)
 
 
-# TODO: remove
-def unit_corresponding_to(k_inv: int) -> Cyclotomic10:
-  k_inv = (k_inv % 5 + 5) % 5  # ensure 0 ≤ k_inv < 5
-  if k_inv == 0:
-    raise ValueError("0 has no unit inverse in ℤ[ω] mod (1 + ω)")
-
-  for j in range(10):
-    unit = Cyclotomic10.Omega_(j)
-    reduced = ((-1) ** j) % 5  # because ω ≡ -1, ω^j ≡ (-1)^j
-    if reduced == k_inv:
-      return unit
-
-  raise RuntimeError("No matching unit found for inverse mod 5")
-
-
-# TODO: this does not work in general, do not use
-@DeprecationWarning
-def binary_gcd(a: Union[Cyclotomic10, ZTau], b: Union[Cyclotomic10, ZTau]) -> Cyclotomic10:
-  print("A: ", a)
-  print("B: ", b)
-  if isinstance(a, ZTau):
-    a = a.to_cycl()
-  if isinstance(b, ZTau):
-    b = b.to_cycl()
-
-  if a == Cyclotomic10.Zero():
-    return b
-  if b == Cyclotomic10.Zero():
-    return a
-
-  if a.divides_by_one_plus_omega() and b.divides_by_one_plus_omega():
-    a1 = a.div_by_one_plus_omega()
-    b1 = b.div_by_one_plus_omega()
-    gcd_inner = binary_gcd(a1, b1)
-    one_plus_omega = Cyclotomic10(1, 1, 0, 0)
-    return one_plus_omega * gcd_inner
-
-  u = Cyclotomic10.One()
-  v = Cyclotomic10.One()
-  if not a.divides_by_one_plus_omega():
-    a_mod = a.mod_one_plus_omega()
-    u = unit_corresponding_to(pow(a_mod, -1, 5))
-
-  if not b.divides_by_one_plus_omega():
-    b_mod = b.mod_one_plus_omega()
-    v = unit_corresponding_to(pow(b_mod, -1, 5))
-
-  if N_i(a) <= N_i(b):
-    c = a
-    d = u * a - v * b
-  else:
-    c = b
-    d = u * b - v * a
-
-  return binary_gcd(c, d)
-
-
 # Returns the same as binary_gcd up to a multiplicative unit
 def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
   while b != Cyclotomic10.Zero():
     q, r = divmod(a, b)
-    assert a == b * q + r, f"Verification failed: a = {a}, b*q + r = {b * q + r}"
     a, b = b, r
   return a
 
 
 def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
   """
-  Outputs x \in Z[\omega] such that |x|² = xi \in Z[\tau]
+  Outputs x in Z[omega] such that |x|² = xi in Z[tau]
   """
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
     return "Unsolved"
@@ -452,11 +329,6 @@ def main2():
   print("Success:", y * q + r == x)
   # exit (0)
   # print("Gcd: ", binary_gcd(y, z))
-  a = Cyclotomic10(1, 0, 0, 0)
-  b = Cyclotomic10(2, 1, 0, 0)
-  import sys
-
-  sys.setrecursionlimit(20)
   print("GCD++++++++++++++++++++++++++++")
   g = gcd(y, z)
   print("GCD:", g)

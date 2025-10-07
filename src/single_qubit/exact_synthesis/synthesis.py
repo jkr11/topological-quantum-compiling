@@ -4,10 +4,9 @@ import math
 from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
 from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_i
 from single_qubit.exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from single_qubit.exact_synthesis.util import trace_norm
 import numpy as np
 import mpmath
-from scipy.optimize import minimize, minimize_scalar
+from scipy.optimize import minimize
 from single_qubit.gates import Gates
 
 
@@ -19,7 +18,6 @@ class TGate:
 @dataclass(frozen=True)
 class FGate:
   power: int
-  pass
 
 
 @dataclass(frozen=True)
@@ -40,87 +38,58 @@ class Sigma2:
 Gate = Union[TGate, FGate, WIGate, Sigma1, Sigma2]
 
 
-def canonicalize_and_reduce_identities(gates: List[Gate]) -> List[Gate]:
-  t_accum = 0
-  w_accum = 0
-  result = []
-
-  i = 0
-  while i < len(gates):
-    gate = gates[i]
-    if isinstance(gate, TGate):
-      t_accum += gate.power
-    elif isinstance(gate, WIGate):
-      w_accum += gate.power
-    elif isinstance(gate, FGate):
-      if t_accum % 10 != 0:
-        result.append(TGate(t_accum % 10))
-        t_accum = 0
-      if w_accum % 10 != 0:
-        result.insert(0, WIGate(w_accum % 10))
-        w_accum = 0
-      if result and isinstance(result[-1], FGate):
-        result.pop()  # F * F = I
-      else:
-        result.append(FGate())
-    else:
-      if t_accum % 10 != 0:
-        result.append(TGate(t_accum % 10))
-        t_accum = 0
-      if w_accum % 10 != 0:
-        result.insert(0, WIGate(w_accum % 10))
-        w_accum = 0
-      result.append(gate)
-    i += 1
-
-  if t_accum % 10 != 0:
-    result.append(TGate(t_accum % 10))
-  if w_accum % 10 != 0:
-    result.insert(0, WIGate(w_accum % 10))
-
-  cleaned = []
-  for g in result:
-    if isinstance(g, TGate) and g.power % 10 == 0:
-      continue
-    if isinstance(g, WIGate) and g.power % 10 == 0:
-      continue
-    cleaned.append(g)
-  return cleaned
+@dataclass(frozen=True)
+class RewriteRule:
+  pattern: List[Gate]
+  replacement: List[Gate]
+  phase_delta: int  # power of WIGate to add to global phase mod 10
 
 
-REWRITE_RULES = [
-  ([WIGate(6), TGate(7)], [Sigma1(1)]),
-  ([WIGate(6), FGate(1), TGate(7), FGate(1)], [Sigma2(1)]),
-  ([FGate(1)], [WIGate(4), Sigma1(1), Sigma2(1), Sigma1(1)]),
+rules = [
+  RewriteRule(pattern=[TGate(7)], replacement=[Sigma1(1)], phase_delta=-6),
+  RewriteRule(pattern=[Sigma1(1)], replacement=[TGate(7)], phase_delta=6),
+  RewriteRule(pattern=[FGate(1), TGate(7), FGate(1)], replacement=[Sigma2(1)], phase_delta=-6),
+  RewriteRule(pattern=[Sigma2(1)], replacement=[FGate(1), TGate(7), FGate(1)], phase_delta=6),
+  RewriteRule(pattern=[Sigma1(1), Sigma1(1), Sigma1(1)], replacement=[TGate(1)], phase_delta=-2),
+  RewriteRule(pattern=[TGate(1)], replacement=[Sigma1(1), Sigma1(1), Sigma1(1)], phase_delta=2),
+  RewriteRule(pattern=[Sigma1(1), Sigma2(1), Sigma1(1)], replacement=[FGate(1)], phase_delta=-4),
+  RewriteRule(pattern=[FGate(1)], replacement=[Sigma1(1), Sigma2(1), Sigma1(1)], phase_delta=4),
 ]
 
 
-def peephole_rewrite_to_sigma(gates: List[Gate]) -> List[Gate]:
-  i = 0
-  result = []
-  while i < len(gates):
-    matched = False
-    for pattern, replacement in REWRITE_RULES:
-      if gates[i : i + len(pattern)] == pattern:
-        print(pattern)
-        result.extend(replacement)
-        i += len(pattern)
-        matched = True
-        break
-    if not matched:
-      result.append(gates[i])
-      i += 1
-  return result
+def gates_equal(g1: Gate, g2: Gate) -> bool:
+  # Compare types and powers modulo 10
+  return isinstance(type(g1), type(g2)) and (g1.power % 10) == (g2.power % 10)
 
 
-def fully_reduce_to_sigma(gates: List[Gate]) -> List[Gate]:
-  gates = canonicalize_and_reduce_identities(gates)
-  while True:
-    new_gates = peephole_rewrite_to_sigma(gates)
-    if new_gates == gates:
-      break
-    gates = new_gates
-  return gates
+class Circuit:
+  def __init__(self, gates: List[Gate]):
+    self.gates = gates
+    self.global_phase = 0  # mod 10
+
+  def __repr__(self):
+    gates_str = " ".join(f"{g.__class__.__name__}({g.power})" for g in self.gates)
+    return f"Circuit: {gates_str}  (Global phase ω^{self.global_phase})"
+
+  def peephole_optimize_forward(self, rules: List[RewriteRule]):
+    changed = True
+    while changed:
+      changed = False
+      i = 0
+      while i < len(self.gates):
+        for rule in rules:
+          plen = len(rule.pattern)
+          if i + plen <= len(self.gates):
+            window = self.gates[i : i + plen]
+            if all(gates_equal(w, p) for w, p in zip(window, rule.pattern)):
+              # Replace with Sigma gates and add phase delta
+              self.gates[i : i + plen] = rule.replacement
+              self.global_phase = (self.global_phase + rule.phase_delta) % 10
+              changed = True
+              break
+        if changed:
+          break
+        i += 1
 
 
 T_power_table = [ExactUnitary.T() ** j for j in range(11)]
@@ -133,106 +102,6 @@ for k in range(11):
 
 def G(u):
   return u.gauss_complexity()
-
-
-def __exact_synthesize(U: ExactUnitary) -> List[Gate]:
-  g = G(U)
-  Ur = U
-  C: List[Gate] = []
-  while g > 2:
-    min_complexity = math.inf
-    J = 0
-    for j in range(11):
-      candidate = FT_power_table[j] * Ur
-      gg = candidate.gauss_complexity()
-      if gg < min_complexity:
-        min_complexity = gg
-        J = j
-    Ur = FT_power_table[J] * Ur
-    g = Ur.gauss_complexity()
-    C.insert(0, TGate((10 - J) % 10))
-    C.insert(0, FGate())
-  if Ur in omega_k_T_j_table:
-    k, j = omega_k_T_j_table[Ur]
-    if j != 0:
-      C.insert(0, TGate(j))
-    if k != 0:
-      C.insert(0, WIGate(k))
-    return C
-  raise ValueError("Final reduction failed")
-
-
-def __synthesize_z_rotation(phi: float, eps: float) -> List[Gate]:
-  phi = mpmath.mpf(phi)
-  eps = mpmath.mpf(eps)
-  PHI = (mpmath.sqrt(5) + 1) / 2
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  C = mpmath.sqrt(PHI / 4)
-
-  m = int(mpmath.ceil(mpmath.log(C * eps, TAU))) + 1
-
-  theta = 0
-  for k in range(-10, 10):
-    theta_candidate = -phi / 2 - math.pi * (k / 5)
-    if 0 <= theta_candidate <= math.pi / 5:
-      theta = theta_candidate
-      break
-  assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
-  u = 0
-  v = 0
-  not_found = True
-  while not_found:
-    u0 = RANDOM_SAMPLE(theta, eps, 1.0)
-    xi = ZTau.Phi() * ((ZTau.Phi() ** (2 * m)) - N_i(u0))
-    fl = EASY_FACTOR(xi)
-    print("Factorization of xi:", fl)
-    if EASY_SOLVABLE(fl):
-      not_found = False
-      u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
-      v = (Cyclotomic10.Tau() ** m) * solve_norm_equation(xi)
-
-  C = __exact_synthesize(ExactUnitary(u, v, 0))
-  return C
-
-
-def __synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
-  """
-  approximating Rz (φ)X
-  by an 〈F, T 〉-circuit with O(log(1/ε)) gates and
-  precision at most ε. Runtime is probabilistic polynomial
-  as a function of log(1/ε).
-  """
-  phi = mpmath.mpf(phi)
-  eps = mpmath.mpf(eps)
-  PHI = (mpmath.sqrt(5) + 1) / 2
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  r = mpmath.sqrt(PHI)
-  C = mpmath.sqrt(PHI / (4 * r))
-  m = int(mpmath.ceil(mpmath.log(C * eps * r, TAU))) + 1
-  theta = 0
-  for k in range(10):
-    theta_candidate = phi / 2 + math.pi / 2 - math.pi * (k / 5)
-    if 0 <= theta_candidate <= math.pi / 5:
-      theta = theta_candidate
-      break
-  assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
-  u = 0
-  v = 0
-  not_found = True
-  while not_found:
-    u0 = RANDOM_SAMPLE(theta, eps, r)
-    xi = (ZTau.Phi() ** (2 * m)) - ZTau.Tau() * N_i(u0)
-    fl = EASY_FACTOR(xi)
-    print("Factorization of xi:", fl)
-    if EASY_SOLVABLE(fl):
-      not_found = False
-      u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
-      ne = solve_norm_equation(xi)
-      v = (Cyclotomic10.Tau() ** m) * ne
-  print("u:", u)
-  print("v:", v)
-  C = __exact_synthesize(ExactUnitary(u, v, 0))
-  return C
 
 
 def global_phase(U):
@@ -254,7 +123,6 @@ def solve_beta(U00, tau=0.6180339887):
 
 
 F = ExactUnitary.F().to_numpy()
-
 
 def _decompose_U(U, tol=1e-12):
   delta = global_phase(U)
@@ -556,6 +424,13 @@ def reconstruct_from_params(params):
     return np.exp(1j * delta) * Gates.Rz(alpha) @ F @ Gates.Rz(beta) @ F @ Gates.Rz(gamma)
 
 
+def norm(U, V):
+  Vt = np.conj(np.transpose(V))
+  UVt = U @ Vt
+  trace = np.trace(UVt)
+  return np.sqrt(1 - (np.abs(trace) / 2))
+
+
 def d_z(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
   return mpmath.sqrt(1 - abs((U.u.evaluate() * mpmath.exp(1j * phi / 2)).real))
@@ -565,6 +440,15 @@ def d_zx(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
   TAU = (mpmath.sqrt(5) - 1) / 2
   return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs((U.v.evaluate() * mpmath.exp(-1j * (phi / 2 + mpmath.pi / 2))).real))
+
+
+forward_rules = [
+  # σ₁ = (ωI)^6 T^7
+  RewriteRule(pattern=[TGate(7)], replacement=[Sigma1(1)], phase_delta=6),
+  # σ₂ = (ωI)^6 F T^7 F
+  RewriteRule(pattern=[FGate(1), TGate(7), FGate(1)], replacement=[Sigma2(1)], phase_delta=6),
+  # Can add more rules here if needed...
+]
 
 
 if __name__ == "__main__":
@@ -578,10 +462,15 @@ if __name__ == "__main__":
   gX = ExactFibonacciSynthesizer.synthesize_zx_rotation(phi, epsilon)
   print(d_zx(phi, gX))
 
-  gXnp = gX.to_numpy(1e-10)
+  gXnp = (gX * ExactUnitary.T() ** 5).to_numpy(1e-10)
   actual = Gates.Rz(phi) @ Gates.X
-  print("Approximation: ", gXnp)
+  print("Approximation: ", 1j * gXnp)
   print("Actual matrix: ", actual)
+  print(norm(1j * gXnp, actual))
 
   circ = ExactFibonacciSynthesizer._exact_synthesize(gX)
   print(len(circ))
+
+  c = Circuit(circ)
+  c.peephole_optimize_forward(forward_rules)
+  print(c)

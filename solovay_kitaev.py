@@ -21,7 +21,6 @@ class Gate:
     return Gate(self.tensor.conj().T, list(reversed(self.name)))
 
 
-
 def hgate() -> np.ndarray:
   return (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
 
