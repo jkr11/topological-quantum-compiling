@@ -1,14 +1,8 @@
-import math
-import numpy as np
-import cmath
 import mpmath
 from mpmath import mp
-from functools import cached_property, total_ordering
-from fractions import Fraction
 from typing import List, Tuple
 
 
-#   @total_ordering
 class Cyclotomic10:
   def __init__(self, c0: int, c1: int, c2: int, c3: int) -> None:
     self.c0: int = c0
@@ -60,7 +54,7 @@ class Cyclotomic10:
       for _ in range(exponent):
         result = result * self
       return result
-    else:  # exponent < 0
+    else:
       inv = self.inv()
       result = self.One()
       for _ in range(-exponent):
@@ -134,7 +128,7 @@ class Cyclotomic10:
     elif isinstance(other, self.__class__):
       p = self * other.galois_automorphism_product()
 
-      k = other.galois_norm()
+      k = N(other)
 
       q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
       q = self.__class__(*q_coeffs)
@@ -195,10 +189,10 @@ class Cyclotomic10:
     return u1 + u2
 
   def div_by_one_plus_omega(self):
+    # TODO: remove
     one_plus_omega = Cyclotomic10(1, 1, 0, 0)
     if self.galois_norm() % 5 == 0:
       inter = self * one_plus_omega.pseudo_inv()
-      print("Intermediate result in div by 1 + w: ", inter)
       a, b, c, d = inter.coeffs()
       a1 = a // 5
       b1 = b // 5
@@ -240,7 +234,19 @@ class Cyclotomic10:
     return f"Cyclotomic10{self.coeffs()}"
 
   def __hash__(self):
-    return hash(tuple(self.coeffs()))  # Use tuple of coefficients for hashing
+    return hash(tuple(self.coeffs()))
+
+  # def __divmod__(self, other) -> Tuple:
+  #   def rounddiv(x : int, y : int) -> int:
+  #     return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
+  #   if not isinstance(other, Cyclotomic10):
+  #     raise TypeError(f"Unsupported operand type for divmod {type(other)}")
+  #   p = self * other
+  #   k = N(other)
+  #   q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
+  #   q = Cyclotomic10(*q_coeffs)
+  #   r = self - (other * q)
+  #   return q, r
 
 
 class ZTau:
@@ -315,24 +321,16 @@ class ZTau:
     return self.__mul__(other)
 
   def __pow__(self, exponent: int):
-    """Exponentiation for RealCyclotomic10 elements
-    Args:
-        exponent: Integer power to raise the element to
-    Returns:
-        RealCyclotomic10: Result of self^exponent
-    Raises:
-        TypeError: If exponent is not an integer
-    """
     if not isinstance(exponent, int):
-      return NotImplemented
+      return ValueError(f"exponent must be integer, was {type(exponent)}")
 
     if exponent == 0:
-      return ZTau(1, 0)  # multiplicative identity
+      return ZTau(1, 0)
 
     if exponent < 0:
-      raise NotImplementedError("Negative powers not implemented")
+      raise ValueError(f"exponent must be positive integer, was {exponent}")
 
-    result = ZTau(1, 0)  # start with 1
+    result = ZTau(1, 0)
     for _ in range(exponent):
       result = result * self
 
@@ -344,7 +342,10 @@ class ZTau:
   def __add__(self, other):
     if isinstance(other, int):
       return ZTau(self.a + other, self.b)
-    return ZTau(self.a + other.a, self.b + other.b)
+    elif isinstance(other, ZTau):
+      return ZTau(self.a + other.a, self.b + other.b)
+    else:
+      raise ValueError(f"Can only add ZTau with ZTau but was {type(other)}")
 
   def __sub__(self, other):
     return self.__add__(-other)
@@ -397,7 +398,7 @@ class ZTau:
     b_cyclo = other.to_cycl()
 
     p = a_cyclo * b_cyclo.galois_automorphism_product()
-    k = other.norm().evaluate()  # N_τ(other)
+    k = other.norm().evaluate()
 
     q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
     q_cyclo = Cyclotomic10(*q_coeffs)

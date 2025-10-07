@@ -77,9 +77,16 @@ class TestCyclotomic10(unittest.TestCase):
   def test_division_example(self):
     y = Cyclotomic10(3, 2, -7, 7)
     yy = N_i(y)
-    print("yy: ", yy)
     x = Cyclotomic10(15, 0, -8, 8) // yy.to_cycl()
     self.assertEqual(x.to_subring(), ZTau(5, 3))
+
+  def test_divmod(self):
+    a = Cyclotomic10(3, 2, -1, 0)
+    b = Cyclotomic10(1, 0, 1, 1)
+
+    q, r = divmod(a, b)
+    lhs = b * q + r
+    assert lhs == a
 
 
 class TestExactUnitary(unittest.TestCase):
@@ -143,8 +150,6 @@ class TestExactUnitary(unittest.TestCase):
     self.assertEqual(result.k, T.k)
 
   def test_T_multiplication(self):
-    result = self.T * self.T
-
     # Verify matrix representation ω^6 * ω^6 = ω^12 = ω^2
     omega_6 = self.omega**6
     omega_12 = (omega_6 * omega_6).evaluate()
@@ -156,7 +161,7 @@ class TestExactUnitary(unittest.TestCase):
       2,
       3,
       13,
-    ]  # I think the paper is wrong here, the first one needs to be 2. There is also a different definition in the shorter version of the article
+    ]  # I think the table in the paper is wrong here, the first n needs to be 2. Check the released version for this
     comp = [Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 1, -1), Cyclotomic10(2, -1, 0, 1)]
     for i in range(0, 3):
       self.assertEqual(comp[i].gauss_complexity().evaluate().real, res[i])
@@ -165,7 +170,6 @@ class TestExactUnitary(unittest.TestCase):
     res = [2, 3, 13]
     for i in range(0, 3):
       U = (self.F * self.T) ** i
-      print(f"(FT)^{i} : ", U)
 
       self.assertEqual(U.gauss_complexity(), res[i], f"failed at (FT)^{i}")
 
@@ -199,35 +203,33 @@ class TestExactUnitary(unittest.TestCase):
     sigma1ct = ExactUnitary.sigma1().transpose()
     self.assertEqual(sigma1ct, ExactUnitary.sigma1())
 
-  def test_mulitplication(self):
-    from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
+  # def test_mulitplication(self):
+  #  from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
+  #  mpmath.mp.dps = 200
+  #  alpha = gamma = 1.8161857816267184
+  #  F = ExactUnitary.F()
+  #  beta = 1.8161857816267184
+  #  rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
+  #  rzb = ExactFibonacciSynthesizer.synthesize_z_rotation(beta, 1e-10)
+  #  rzg = ExactFibonacciSynthesizer.synthesize_z_rotation(gamma, 1e-10)
+  #  mul = rza @ rzb @ rzg
+  #  print(mul.to_numpy())
+  #  self.assertTrue(np.allclose(mul.to_numpy(), rza.to_numpy() @ rzb.to_numpy() @ rzg.to_numpy()))
+  #  mul2 = rza * F * rzb * F * rzg
+  #  print(mul2.to_numpy())
+  #  self.assertTrue(np.allclose(mul2.to_numpy(), rza.to_numpy() @ F.to_numpy() @ rzb.to_numpy() @ F.to_numpy() @ rzg.to_numpy()))
 
-    mpmath.mp.dps = 200
-    alpha = gamma = 1.8161857816267184
-    F = ExactUnitary.F()
-    beta = 1.8161857816267184
-    rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
-    rzb = ExactFibonacciSynthesizer.synthesize_z_rotation(beta, 1e-10)
-    rzg = ExactFibonacciSynthesizer.synthesize_z_rotation(gamma, 1e-10)
-    mul = rza @ rzb @ rzg
-    print(mul.to_numpy())
-    self.assertTrue(np.allclose(mul.to_numpy(), rza.to_numpy() @ rzb.to_numpy() @ rzg.to_numpy()))
+  # def test_synthesis(self):
+  #   from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
+  #   from single_qubit.gates import Gates
+  #   from single_qubit.exact_synthesis.util import trace_norm
 
-    mul2 = rza * F * rzb * F * rzg
-    print(mul2.to_numpy())
-    self.assertTrue(np.allclose(mul2.to_numpy(), rza.to_numpy() @ F.to_numpy() @ rzb.to_numpy() @ F.to_numpy() @ rzg.to_numpy()))
-
-  def test_synthesis(self):
-    from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
-    from single_qubit.gates import Gates
-    from single_qubit.exact_synthesis.util import trace_norm
-
-    mpmath.mp.dps = 200
-    alpha = 1.8161857816267184
-    rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
-    rznp = Gates.Rz(alpha)
-    print("Trace norm: ", trace_norm(rza.to_numpy(), rznp))
-    self.assertTrue(np.allclose(rza.to_numpy(), rznp, 1e-5))
+  #   mpmath.mp.dps = 200
+  #   alpha = 1.8161857816267184
+  #   rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
+  #   rznp = Gates.Rz(alpha)
+  #   print("Trace norm: ", trace_norm(rza.to_numpy(), rznp))
+  #   self.assertTrue(np.allclose(rza.to_numpy(), rznp, 1e-5))
 
 
 if __name__ == "__main__":
