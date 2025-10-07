@@ -1,8 +1,6 @@
-from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
 import numpy as np
-from typing import Union, Tuple, Optional
+from typing import Tuple, Optional
 import mpmath
-from mpmath import mp
 
 
 SQRT_5 = mpmath.mp.sqrt(5)

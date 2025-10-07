@@ -1,9 +1,9 @@
 import math
 import random
-from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
+from exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
 from typing import List, Tuple, Union
-from single_qubit.exact_synthesis.util import CONSTANTS
-from single_qubit.exact_synthesis.prec import APPROX_REAL, RANDOM_SAMPLE
+from exact_synthesis.util import CONSTANTS
+from exact_synthesis.prec import APPROX_REAL, RANDOM_SAMPLE
 
 
 def fibonacci(n: int) -> int:
@@ -21,65 +21,6 @@ def extended_fib_coefficients(n: int) -> Tuple[int, int]:
   u = ((-1) ** (n + 1)) * Fn
   v = (-1) ** n * Fn_minus_1
   return u, v
-
-
-@DeprecationWarning
-def _APPROX_REAL(x: float, n: int) -> ZTau:
-  PREC = CONSTANTS.TAU ** (n - 1) * (1 - CONSTANTS.TAU**n)
-
-  p = fibonacci(n)
-  q = fibonacci(n + 1)
-  u = (-1) ** (n + 1) * p
-  v = (-1) ** n * fibonacci(n - 1)
-
-  assert u * p + v * q == 1
-
-  c = round(x * q)
-  a = c * v + p * round((c * u) / q)
-  b = c * u - q * round((c * u) / q)
-
-  approx = a + b * CONSTANTS.TAU
-  abs_diff = abs(x - approx)
-  abs_b = abs(b)
-  phi_pow_n = CONSTANTS.PHI**n
-  assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
-  return ZTau(a, b)
-
-
-@DeprecationWarning
-def _RANDOM_SAMPLE(theta: float, epsilon: float, r: float) -> Cyclotomic10:
-  assert r >= 1, f"r needs to be >= 1 but was {r}."
-  PHI = CONSTANTS.PHI
-  TAU = CONSTANTS.TAU
-  C: float = math.sqrt(CONSTANTS.PHI / (4 * r))
-  m: int = math.ceil(math.log(C * epsilon * r, CONSTANTS.TAU)) + 1
-  N: int = math.ceil(CONSTANTS.PHI**m)
-
-  sin_theta: float = math.sin(theta)
-  cos_theta: float = math.cos(theta)
-
-  sqrt_expr: float = math.sqrt(4 - epsilon**2)
-  ymin: float = r * CONSTANTS.PHI**m * (sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
-  ymax: float = r * PHI**m * (sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
-
-  xmax: float = r * PHI**m * ((1 - epsilon**2 / 2) * cos_theta - epsilon * math.sqrt(1 - epsilon**2 / 4) * sin_theta)
-  xc: float = xmax - (r * epsilon**2 * PHI**m) / (4 * cos_theta)
-
-  j: int = random.randint(1, N - 1)
-  y: float = ymin + j * (ymax - ymin) / N
-
-  y_prime: float = y / math.sqrt(2 - TAU)
-  yy = _APPROX_REAL(y_prime, m)
-
-  y_approx = (yy.evaluate()) * math.sqrt(2 - TAU)
-  x = xc - (y_approx - ymin) * math.tan(theta)
-
-  xx: ZTau = _APPROX_REAL(x, m)
-
-  part1 = xx.to_cycl()
-  part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))  # |w + w^4|^2 = tau - 2 => w + w^4 = 1j * sqrt(2 - tau)
-
-  return part1 + part2
 
 
 def is_square(n: int) -> Union[int, None]:
@@ -365,7 +306,7 @@ def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
 
 def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
   """
-  Outputs x \in Z[\omega] such that |x|² = xi \in Z[\tau]
+  Outputs x in Z[omega] such that |x|² = xi in Z[\tau]
   """
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
     return "Unsolved"
