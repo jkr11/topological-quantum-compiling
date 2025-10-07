@@ -1,5 +1,5 @@
 [project]
-name = "exact-synthesis-py"
+name = "exact-synthesis"
 version = "0.1.0"
 description = "Quantum synthesis toolkit for fibonacci anyons"
 

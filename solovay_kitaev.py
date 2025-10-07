@@ -3,8 +3,7 @@ import numpy as np
 from typing import List, Tuple, Dict
 from enum import Enum
 import itertools
-from src.exact_synthesis.exactUnitary import ExactUnitary
-from src.exact_synthesis.util import Gates
+from exact_synthesis.util import Gates
 
 type Tensor = np.ndarray
 
@@ -19,7 +18,6 @@ class Gate:
 
   def adjoint(self) -> "Gate":
     return Gate(self.tensor.conj().T, list(reversed(self.name)))
-
 
 
 def hgate() -> np.ndarray:
