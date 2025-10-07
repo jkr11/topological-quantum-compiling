@@ -1,4 +1,4 @@
-from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau
+from exact_synthesis.rings import Cyclotomic10, ZTau
 import mpmath
 import random
 from mpmath import exp

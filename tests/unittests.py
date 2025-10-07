@@ -2,11 +2,11 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau
-from single_qubit.exact_synthesis.rings import *
-from single_qubit.exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
-from single_qubit.exact_synthesis.exactUnitary import ExactUnitary
-from single_qubit.exact_synthesis.exactUnitary import *
+from exact_synthesis.rings import Cyclotomic10, ZTau
+from exact_synthesis.rings import *
+from exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
+from exact_synthesis.exactUnitary import ExactUnitary
+from exact_synthesis.exactUnitary import *
 
 # TODO: remove these
 Nomega = np.exp(1j * np.pi / 5)

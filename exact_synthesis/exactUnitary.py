@@ -1,5 +1,5 @@
 from functools import cached_property
-from single_qubit.exact_synthesis.rings import Cyclotomic10, ZTau, N_i
+from exact_synthesis.rings import Cyclotomic10, ZTau, N_i
 import numpy as np
 from typing import List
 import mpmath
