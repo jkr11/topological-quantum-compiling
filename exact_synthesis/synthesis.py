@@ -6,8 +6,7 @@ from exact_synthesis.rings import Cyclotomic10, ZTau, N_i
 from exact_synthesis.numberTheory import RANDOM_SAMPLE, EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
 import numpy as np
 import mpmath
-from scipy.optimize import minimize
-from exact_synthesis.util import Gates
+from exact_synthesis.util import Gates, euler_angles
 
 
 @dataclass(frozen=True)
@@ -234,62 +233,7 @@ def __synthesize_zx_rotation(phi: float, eps: float) -> List[Gate]:
   return C
 
 
-def global_phase(U):
-  # determinant = e^{2i delta} => delta = 0.5 * arg(det)
-  det = np.linalg.det(U)
-  delta = np.angle(det) / 2
-  return delta
-
-
-def solve_beta(U00, tau=0.6180339887):
-  c = np.abs(U00) / tau
-  rhs = (c**2 - 1 - tau**2) / (2 * tau)
-
-  if np.abs(rhs) > 1:
-    raise ValueError("No real solution for beta — numerical instability or invalid tau/U00.")
-
-  beta = np.arccos(rhs)
-  return beta
-
-
 F = ExactUnitary.F().to_numpy()
-
-
-def _decompose_U(U, tol=1e-12):
-  delta = global_phase(U)
-  U_prime = U * np.exp(-1j * delta)  # remove global phase
-  print(np.linalg.det(U_prime))
-  if np.abs(U_prime[0, 0]) > tol:
-    U00 = U_prime[0, 0]
-    beta = solve_beta(U00)
-
-    def error_func(params):
-      alpha, gamma = params
-      M = Gates.Rz(alpha) @ F @ Gates.Rz(beta) @ F @ Gates.Rz(gamma)
-      return np.linalg.norm(M - U_prime) / np.linalg.norm(U_prime)
-
-    res2 = minimize(
-      error_func,
-      [0, 0],
-      bounds=[(-2 * np.pi, 2 * np.pi), (-2 * np.pi, 2 * np.pi)],
-    )
-    alpha, gamma = res2.x
-
-    return {
-      "delta": delta,
-      "alpha": alpha,
-      "beta": beta,
-      "gamma": gamma,
-      "form": "Rz-F-Rz-F-Rz",
-    }
-  else:
-    # zero upper-left entry case
-    X = Gates.X()
-    Rz_phi = U_prime @ X
-    diag = np.diag(Rz_phi)
-    phi = np.angle(0.5 * diag[0])
-
-    return {"delta": delta, "phi": phi, "form": "Rz-X"}
 
 
 class ExactFibonacciSynthesizer:
@@ -433,23 +377,17 @@ class ExactFibonacciSynthesizer:
 
   @classmethod
   def synthesize_unitary(cls, U: np.ndarray, epsilon: float):
-    state = _decompose_U(U)
-    if state["form"] == "Rz-F-Rz-F-Rz":
-      delta = state["delta"]
-      alpha = state["alpha"]
-      beta = state["beta"]
-      gamma = state["gamma"]
-      decomp1 = cls.synthesize_z_rotation(alpha, epsilon)
-      # print("D1: ", decomp1.to_numpy())
-      # print("Actual: ", Gates.Rz(alpha))
-      decomp2 = cls.synthesize_z_rotation(beta, epsilon)
-      # print("D2: ", decomp2.to_numpy())
-      # print("Actual2: ", Gates.Rz(beta))
-      decomp3 = cls.synthesize_z_rotation(gamma, epsilon)
-      # print("D3: ", decomp3.to_numpy)
-      # print("Actual 3: ", Gates.Rz(gamma))
-      return delta, decomp1 * ExactUnitary.F() * decomp2 * ExactUnitary.F() * decomp3, [decomp1.to_numpy(), decomp2.to_numpy(), decomp3.to_numpy()]
-
+    alpha, beta, gamma, delta = euler_angles(U)
+    decomp1 = cls.synthesize_z_rotation(alpha, epsilon)
+    # print("D1: ", decomp1.to_numpy())
+    # print("Actual: ", Gates.Rz(alpha))
+    decomp2 = cls.synthesize_z_rotation(beta, epsilon)
+    # print("D2: ", decomp2.to_numpy())
+    # print("Actual2: ", Gates.Rz(beta))
+    decomp3 = cls.synthesize_z_rotation(gamma, epsilon)
+    # print("D3: ", decomp3.to_numpy)
+    # print("Actual 3: ", Gates.Rz(gamma))
+    return delta, decomp1 * ExactUnitary.F() * decomp2 * ExactUnitary.F() * decomp3, [decomp1.to_numpy(), decomp2.to_numpy(), decomp3.to_numpy()]
 
 def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
   """
