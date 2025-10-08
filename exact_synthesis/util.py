@@ -13,6 +13,60 @@ class CONSTANTS:
   TAU = TAU
 
 
+def phase(z):
+  return np.angle(z)
+
+
+def mag(z):
+  return np.abs(z)
+
+
+def cis(theta):
+  return np.cos(theta) + 1j * np.sin(theta)
+
+
+def adj(z):
+  return np.conj(z)
+
+
+def euler_angles(U: np.ndarray) -> Tuple[float, float, float, float]:
+  a, b = U[0, 0], U[0, 1]
+  c, d = U[1, 0], U[1, 1]
+
+  det = np.linalg.det(U)
+  alpha = np.angle(det) / 2
+
+  gamma = 2 * np.arctan2(mag(b), mag(a))
+
+  i = 1j
+
+  delta = phase(b * d * i * adj(det))
+
+  beta = 2 * phase(d * cis(-alpha - delta / 2) + c * cis(-alpha + delta / 2) * i)
+
+  return (alpha, beta, gamma, delta)
+
+
+def matrix_of_euler_angles(angles: Tuple) -> np.ndarray:
+  alpha, beta, gamma, delta = angles
+
+  def cplx_cis(theta):
+    return np.cos(theta) + 1j * np.sin(theta)
+
+  hadamard = Gates.H
+
+  def zrot(gamma):
+    return np.array([[cplx_cis(-gamma / 2), 0], [0, cplx_cis(gamma / 2)]], dtype=complex)
+
+  opa = cplx_cis(alpha) * np.identity(2, dtype=complex)
+  opb = zrot(beta)
+  opc = hadamard @ zrot(gamma) @ hadamard
+  opd = zrot(delta)
+
+  op = opa @ opb @ opc @ opd
+  return op
+
+
 def is_Rz(U: np.ndarray, tol: float = 1e-10) -> Tuple[bool, Optional[float]]:
   if U.shape != (2, 2):
     return False, None
@@ -52,3 +106,14 @@ class Gates(object):
   swap = np.identity(4)[[0, 2, 1, 3]]
 
   CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
+
+
+if __name__ == "__main__":
+  op = np.array([[1 / np.sqrt(2), 1j / np.sqrt(2)], [1j / np.sqrt(2), 1 / np.sqrt(2)]], dtype=complex)
+
+  alpha, beta, gamma, delta = euler_angles(op)
+  print(f"Euler angles: alpha={alpha}, beta={beta}, gamma={gamma}, delta={delta}")
+  print(f"Original op: {op}")
+  op_reconstructed = matrix_of_euler_angles((alpha, beta, gamma, delta))
+  print("Reconstructed operator:\n", op_reconstructed)
+  assert np.allclose(op, op_reconstructed)

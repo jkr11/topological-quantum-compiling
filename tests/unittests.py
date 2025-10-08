@@ -7,6 +7,8 @@ from exact_synthesis.rings import *
 from exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.exactUnitary import *
+from scipy.stats import unitary_group
+from exact_synthesis.util import euler_angles, matrix_of_euler_angles # TODO: self code haar random unitaries to remove scipy import
 
 # TODO: remove these
 Nomega = np.exp(1j * np.pi / 5)
@@ -86,7 +88,7 @@ class TestCyclotomic10(unittest.TestCase):
 
     q, r = divmod(a, b)
     lhs = b * q + r
-    assert lhs == a
+    self.assertTrue(lhs == a)
 
 
 class TestExactUnitary(unittest.TestCase):
@@ -230,6 +232,14 @@ class TestExactUnitary(unittest.TestCase):
   #   rznp = Gates.Rz(alpha)
   #   print("Trace norm: ", trace_norm(rza.to_numpy(), rznp))
   #   self.assertTrue(np.allclose(rza.to_numpy(), rznp, 1e-5))
+
+
+class TestEulerAngles(unittest.TestCase):
+  def test_euler_angles(self):
+    U = unitary_group.rvs(2)
+    a, b, c, d = euler_angles(U)
+    rU = matrix_of_euler_angles((a, b, c, d))
+    self.assertTrue(np.allclose(U, rU))
 
 
 if __name__ == "__main__":
