@@ -13,6 +13,16 @@ class CONSTANTS:
   TAU = TAU
 
 
+def haar_random_su2():  # TODO: check
+  u = np.random.normal(size=4)
+  u /= np.linalg.norm(u)  # generates a unit quaternion on S3
+
+  a, b, c, d = u
+
+  U = np.array([[a + 1j * b, c + 1j * d], [-c + 1j * d, a - 1j * b]])
+  return U
+
+
 def phase(z):
   return np.angle(z)
 
@@ -50,15 +60,12 @@ def euler_angles(U: np.ndarray) -> Tuple[float, float, float, float]:
 def matrix_of_euler_angles(angles: Tuple) -> np.ndarray:
   alpha, beta, gamma, delta = angles
 
-  def cplx_cis(theta):
-    return np.cos(theta) + 1j * np.sin(theta)
-
   hadamard = Gates.H
 
   def zrot(gamma):
-    return np.array([[cplx_cis(-gamma / 2), 0], [0, cplx_cis(gamma / 2)]], dtype=complex)
+    return np.array([[cis(-gamma / 2), 0], [0, cis(gamma / 2)]], dtype=complex)
 
-  opa = cplx_cis(alpha) * np.identity(2, dtype=complex)
+  opa = cis(alpha) * np.identity(2, dtype=complex)
   opb = zrot(beta)
   opc = hadamard @ zrot(gamma) @ hadamard
   opd = zrot(delta)
@@ -92,28 +99,20 @@ class Gates(object):
   Collection of common quantum gates.
   """
 
-  # Pauli matrices
   X = np.array([[0.0, 1.0], [1.0, 0.0]])
   Y = np.array([[0.0, -1.0j], [1.0j, 0.0]])
   Z = np.array([[1.0, 0.0], [0.0, -1.0]])
-  # Hadamard gate
+
   H = np.array([[1.0, 1.0], [1.0, -1.0]]) / np.sqrt(2)
-  # S gate
+
   S = np.array([[1.0, 0.0], [0.0, 1.0j]])
-  # T gate
+
   T = np.array([[1.0, 0.0], [0.0, np.sqrt(1j)]])
-  # swap gate
+
   swap = np.identity(4)[[0, 2, 1, 3]]
 
   CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 
-
-if __name__ == "__main__":
-  op = np.array([[1 / np.sqrt(2), 1j / np.sqrt(2)], [1j / np.sqrt(2), 1 / np.sqrt(2)]], dtype=complex)
-
-  alpha, beta, gamma, delta = euler_angles(op)
-  print(f"Euler angles: alpha={alpha}, beta={beta}, gamma={gamma}, delta={delta}")
-  print(f"Original op: {op}")
-  op_reconstructed = matrix_of_euler_angles((alpha, beta, gamma, delta))
-  print("Reconstructed operator:\n", op_reconstructed)
-  assert np.allclose(op, op_reconstructed)
+  @staticmethod
+  def Rz(theta):
+    return np.array([[np.exp(-1j * theta / 2), 0], [0, np.exp(1j * theta / 2)]], dtype=np.complex256)

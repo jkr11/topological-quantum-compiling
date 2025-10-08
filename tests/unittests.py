@@ -3,32 +3,9 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 
 from exact_synthesis.rings import Cyclotomic10, ZTau
-from exact_synthesis.rings import *
 from exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
 from exact_synthesis.exactUnitary import ExactUnitary
-from exact_synthesis.exactUnitary import *
-from scipy.stats import unitary_group
-from exact_synthesis.util import euler_angles, matrix_of_euler_angles # TODO: self code haar random unitaries to remove scipy import
-
-# TODO: remove these
-Nomega = np.exp(1j * np.pi / 5)
-
-# Define the conjugate golden ratio τ = (sqrt(5) - 1)/2
-Ntau = (np.sqrt(5) - 1) / 2
-sqrt_tau = np.sqrt(Ntau)
-
-# Define T gate
-Tnp = np.array([[1, 0], [0, Nomega]], dtype=complex)
-
-# Define F matrix
-Fnp = np.array([[Ntau, sqrt_tau], [sqrt_tau, -Ntau]], dtype=complex)
-
-NOmegaI = np.array([[Nomega, 0], [0, Nomega]], dtype=complex)
-
-# Define σ1 and σ2
-sigma1 = np.array([[Nomega**6, 0], [0, Nomega**13]], dtype=complex)
-
-sigma2 = Fnp @ sigma1 @ Fnp.T
+from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
 
 
 class TestGaussComplexity(unittest.TestCase):
@@ -97,24 +74,9 @@ class TestExactUnitary(unittest.TestCase):
     cls.omega = Cyclotomic10(0, 1, 0, 0)
     cls.tau = cls.omega**2 - cls.omega**3
 
-    # Define T = U[1, 0, 6] (ω^6 = -ω)
     cls.T = ExactUnitary(Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 0, 0), 6)
-
-    # Define F = U[τ, 1, 0]
     cls.F = ExactUnitary(cls.tau, Cyclotomic10(1, 0, 0, 0), 0)
-
-    # Identity unitary (u=1, v=0, k=0)
     cls.I = ExactUnitary(Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 0, 0), 0)
-
-  def test_rings(self):
-    pass
-    # test = Cyclotomic10(0, -1, 0, 0)
-    # result = self.omega**6
-    # self.assertEqual(result, test)
-    # Tau = Cyclotomic10.Tau()
-    # self.assertEqual(Cyclotomic10.One().evaluate(), 1)
-    # self.assertEqual(Cyclotomic10.One().conjugate().evaluate(), 1)
-    # self.assertEqual(Cyclotomic10.Tau().automorphism().evaluate(), -Ntau - 1)
 
   def test_F_squared_eq_one(self):
     tt = ExactUnitary.F()
@@ -205,38 +167,10 @@ class TestExactUnitary(unittest.TestCase):
     sigma1ct = ExactUnitary.sigma1().transpose()
     self.assertEqual(sigma1ct, ExactUnitary.sigma1())
 
-  # def test_mulitplication(self):
-  #  from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
-  #  mpmath.mp.dps = 200
-  #  alpha = gamma = 1.8161857816267184
-  #  F = ExactUnitary.F()
-  #  beta = 1.8161857816267184
-  #  rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
-  #  rzb = ExactFibonacciSynthesizer.synthesize_z_rotation(beta, 1e-10)
-  #  rzg = ExactFibonacciSynthesizer.synthesize_z_rotation(gamma, 1e-10)
-  #  mul = rza @ rzb @ rzg
-  #  print(mul.to_numpy())
-  #  self.assertTrue(np.allclose(mul.to_numpy(), rza.to_numpy() @ rzb.to_numpy() @ rzg.to_numpy()))
-  #  mul2 = rza * F * rzb * F * rzg
-  #  print(mul2.to_numpy())
-  #  self.assertTrue(np.allclose(mul2.to_numpy(), rza.to_numpy() @ F.to_numpy() @ rzb.to_numpy() @ F.to_numpy() @ rzg.to_numpy()))
-
-  # def test_synthesis(self):
-  #   from single_qubit.exact_synthesis.synthesis import ExactFibonacciSynthesizer
-  #   from single_qubit.gates import Gates
-  #   from single_qubit.exact_synthesis.util import trace_norm
-
-  #   mpmath.mp.dps = 200
-  #   alpha = 1.8161857816267184
-  #   rza = ExactFibonacciSynthesizer.synthesize_z_rotation(alpha, 1e-10)
-  #   rznp = Gates.Rz(alpha)
-  #   print("Trace norm: ", trace_norm(rza.to_numpy(), rznp))
-  #   self.assertTrue(np.allclose(rza.to_numpy(), rznp, 1e-5))
-
 
 class TestEulerAngles(unittest.TestCase):
   def test_euler_angles(self):
-    U = unitary_group.rvs(2)
+    U = haar_random_su2()
     a, b, c, d = euler_angles(U)
     rU = matrix_of_euler_angles((a, b, c, d))
     self.assertTrue(np.allclose(U, rU))

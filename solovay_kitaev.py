@@ -5,6 +5,10 @@ from enum import Enum
 import itertools
 from exact_synthesis.util import Gates
 
+import scipy as sp
+from typing import Any
+
+
 type Tensor = np.ndarray
 
 
@@ -264,9 +268,6 @@ class SolovayKitaev:
     distances = np.array([trace_dist(g.tensor, unitary) for g in self.gate_list])
     return self.gate_list[np.argmin(distances)]
 
-
-import scipy as sp
-from typing import Any
 
 _CLIFFORD_T_BASIS = {
   "H": Gates.H,
