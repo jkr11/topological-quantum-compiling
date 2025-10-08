@@ -1,6 +1,5 @@
 import mpmath
-from exact_synthesis.synthesis import ExactFibonacciSynthesizer
-from exact_synthesis.synthesis import d_z
+from exact_synthesis.synthesis import ExactFibonacciSynthesizer, d_z
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import Gates
 
@@ -16,8 +15,8 @@ if __name__ == "__main__":
 
       actual = Gates.Rz(phi)
       approx = (g * ExactUnitary.T() ** 5).to_numpy(1e-10)
-      
-      print(f"Approximation: {approx}",)
+
+      print(f"Approximation: {approx}")
       print("Actual matrix: ", actual)
       print(f"Difference total: {approx - actual}")
       break
