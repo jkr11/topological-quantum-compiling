@@ -249,10 +249,10 @@ def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
   Outputs x in Z[omega] such that |x|² = xi in Z[\tau]
   """
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
-    return "Unsolved"
+    raise ValueError(f"{xi.evaluate} or its aut is < 0.")
   fl = EASY_FACTOR(xi)
   if not EASY_SOLVABLE(fl):
-    return "Unsolved"
+    raise ValueError(f"{xi} is not easy solvable.")
   x: Cyclotomic10 = Cyclotomic10.One()
   for i in range(len(fl)):
     xii: ZTau = fl[i][0]
@@ -270,11 +270,11 @@ def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
           M: Tuple[int, int] = splitting_root(xii)
 
           y: Cyclotomic10 = gcd(
-            xii.to_cycl(),
-            Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4)),
-          )
-          u = xii.to_cycl() // N_i(y).to_cycl()  # TODO:
-          s, m = UNIT_DLOG(u.to_subring())
+            xii.to_cycl(), Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
+          )  # here, we have to cast up for representing sqrt(tau - 2), which is not in ZTau
+          print(type(xii))
+          u = xii // N_i(y)
+          s, m = UNIT_DLOG(u)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
           x = x * (Cyclotomic10.Tau() ** (m // 2)) * y
   return x

@@ -62,28 +62,28 @@ class Cyclotomic10:
       return result
 
   @classmethod
-  def from_int(self, other: int):
-    return self(other, 0, 0, 0)
+  def from_int(cls, other: int):
+    return cls(other, 0, 0, 0)
 
   @classmethod
-  def One(self):
-    return self.from_int(1)
+  def One(cls):
+    return cls.from_int(1)
 
   @classmethod
-  def Zero(self):
-    return self.from_int(0)
+  def Zero(cls):
+    return cls.from_int(0)
 
   @classmethod
-  def Tau(self):
+  def Tau(cls):
     return Cyclotomic10(0, 0, 1, -1)
 
   @classmethod
-  def Omega(self):
+  def Omega(cls):
     return Cyclotomic10(0, 1, 0, 0)
 
   @classmethod
-  def Omega_(self, k: int):
-    return self.Omega() ** k
+  def Omega_(cls, k: int):
+    return cls.Omega() ** k
 
   def conjugate(self):
     c0, c1, c2, c3 = self.coeffs()
@@ -93,7 +93,7 @@ class Cyclotomic10:
     c0, c1, c2, c3 = self.coeffs()
     return Cyclotomic10(c0 + c3, -c2 - c3, c3, c1 - c3)
 
-  def galois_automorphism(self, k: int):
+  def galois_automorphism(self, k: int) -> "Cyclotomic10":
     if k == 1:
       return self
     elif k == 3:
@@ -104,7 +104,7 @@ class Cyclotomic10:
     elif k == 9:
       return self.automorphism().automorphism()
     else:
-      raise NotImplementedError
+      raise NotImplementedError(f"galois_automorphism(k : int) is only available for k = 1,3,7,9 but was {k}.")
 
   def inv(self):
     conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
@@ -119,7 +119,7 @@ class Cyclotomic10:
   def galois_automorphism_product(self):
     return self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
 
-  def __divmod__(self, other):
+  def __divmod__(self, other) -> tuple["Cyclotomic10", "Cyclotomic10"]:
     def rounddiv(x: int, y: int):
       return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
 
@@ -136,11 +136,14 @@ class Cyclotomic10:
       r = self - other * q
       return q, r
     else:
-      return NotImplemented
+      raise NotImplementedError(f"__divmod__ is not implement for {type(self)} and {type(other)}.")
 
   def __floordiv__(self, other):
     q, _ = divmod(self, other)
     return q
+
+  def __div__(self, other):
+    raise NotImplementedError("Only __floordiv__ available as we implement over Integers")
 
   def galois_norm(self) -> int:
     norm = self * self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
@@ -187,20 +190,6 @@ class Cyclotomic10:
     u1 = N_i(self)
     u2 = N_i(self.automorphism())
     return u1 + u2
-
-  def div_by_one_plus_omega(self):
-    # TODO: remove
-    one_plus_omega = Cyclotomic10(1, 1, 0, 0)
-    if self.galois_norm() % 5 == 0:
-      inter = self * one_plus_omega.pseudo_inv()
-      a, b, c, d = inter.coeffs()
-      a1 = a // 5
-      b1 = b // 5
-      c1 = c // 5
-      d1 = d // 5
-      return Cyclotomic10(a1, b1, c1, d1)
-    else:
-      raise ValueError("Norm not divable by 5")
 
   def __eq__(self, other):
     return self.coeffs() == other.coeffs()
@@ -388,6 +377,9 @@ class ZTau:
       return f"{self.a} - {-self.b}τ"
 
   def __divmod__(self, other: "ZTau") -> Tuple["ZTau", "ZTau"]:
+    if not isinstance(other, ZTau):
+      raise TypeError(f"divmod does not support {type(self)} and {type(other)}")
+
     def rounddiv(x: int, y: int) -> int:
       return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
 
@@ -398,15 +390,14 @@ class ZTau:
     b_cyclo = other.to_cycl()
 
     p = a_cyclo * b_cyclo.galois_automorphism_product()
-    k = other.norm().evaluate()
+    k = N(other.to_cycl())  # TODO: check why this is different when casting
 
     q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
     q_cyclo = Cyclotomic10(*q_coeffs)
 
-    q = q_cyclo.to_real()
+    q = q_cyclo.to_subring()
 
     r = self - other * q
-
     return q, r
 
   def __floordiv__(self, other):
@@ -435,4 +426,7 @@ def N(eta: Cyclotomic10) -> int:
 
 # A10
 def gauss_complexity_measure(eta: Cyclotomic10) -> int:
+  """
+  N_i(eta) + N_i(eta^aut) evaluates to a ZTau, but since this equation is idempotent over autimorphisms, we can just cast to int.
+  """
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
