@@ -3,6 +3,7 @@ import random
 from exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
 from typing import List, Tuple, Union
 
+
 def fibonacci(n: int) -> int:
   assert n >= 0
   a, b = 0, 1
@@ -33,7 +34,7 @@ def IS_PRIME(p: int) -> bool:
   return miller_rabin(p)
 
 
-def miller_rabin(n, k=7):
+def miller_rabin(n: int, k: int = 7) -> bool:
   """Use Miller-Rabin primality test to check if n is prime.
   k is number of accuracy rounds.
   """
@@ -95,16 +96,16 @@ def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
   a1 = a // c
   b1 = b // c
   xi1 = ZTau(a1, b1)
-  ret = []
+  ret: List[Tuple[ZTau, int]] = []
   d: int = is_square(c)
   if d is not None:
-    ret = [(d, 2)]
+    ret = [(ZTau(d, 0), 2)]
   else:
     d = is_square(c // 5) if c % 5 == 0 else None
     if d is not None:
-      ret = [(d, 2), (5, 1)]
+      ret = [(ZTau(d, 0), 2), (ZTau(5, 0), 1)]
     else:
-      # print("Equations is not going to be solvable")
+      # this means unsolvable
       return [(xi1, 1)]
   n = N_tau(xi1)
   if n % 5 == 0:
@@ -233,6 +234,7 @@ def splitting_root(xi: ZTau) -> Tuple[int, int]:
   b1 = _mod_inv(xi.b, p)
   n: int = (-xi.a * b1 - 2) % p
   return tonelli_shanks(n, p)
+
 
 def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
   while b != Cyclotomic10.Zero():
