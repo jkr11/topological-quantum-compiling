@@ -225,18 +225,6 @@ class Cyclotomic10:
   def __hash__(self):
     return hash(tuple(self.coeffs()))
 
-  # def __divmod__(self, other) -> Tuple:
-  #   def rounddiv(x : int, y : int) -> int:
-  #     return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
-  #   if not isinstance(other, Cyclotomic10):
-  #     raise TypeError(f"Unsupported operand type for divmod {type(other)}")
-  #   p = self * other
-  #   k = N(other)
-  #   q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
-  #   q = Cyclotomic10(*q_coeffs)
-  #   r = self - (other * q)
-  #   return q, r
-
 
 class ZTau:
   def __init__(self, a: int, b: int):
@@ -341,7 +329,7 @@ class ZTau:
 
   def __eq__(self, other):
     if isinstance(other, int):
-      return self == ZTau.from_int(other)
+      return self.a == other and self.b == 0
     return self.a == other.a and self.b == other.b
 
   def inv(self):

@@ -77,14 +77,13 @@ def easy_solvable_predicate(xi: ZTau):
 def EASY_SOLVABLE(fl: List[Tuple[ZTau, int]]) -> bool:
   for i in range(0, len(fl)):
     xi, k = fl[i]
-    if k % 2 == 1:
-      if xi != ZTau(5, 0):
-        p: int = N_tau(xi)
-
-        r = p % 5
-
-        if not IS_PRIME(p) or r not in [0, 1]:
-          return False
+    if k % 2 == 0:
+      pass
+    elif xi != ZTau(5, 0):
+      p: int = N_tau(xi)
+      r = p % 5
+      if not IS_PRIME(p) or r not in [0, 1]:
+        return False
   return True
 
 
@@ -244,7 +243,7 @@ def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
   return a
 
 
-def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
+def solve_norm_equation(xi: ZTau) -> Cyclotomic10:
   """
   Outputs x in Z[omega] such that |x|² = xi in Z[\tau]
   """
@@ -261,7 +260,7 @@ def solve_norm_equation(xi: ZTau) -> Union[Cyclotomic10, str]:
     m: int = fl[i][1]
     x = x * (xii ** (m // 2))
     if m % 2 == 1:
-      if xii.a == 5 and xii.b == 0:
+      if xii == 5:
         x = x * (ZTau(1, 2))
       else:
         if xii == ZTau(2, -1):
