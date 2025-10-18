@@ -1,14 +1,14 @@
 from functools import cached_property
-from exact_synthesis.rings import Cyclotomic10, ZTau, N_i
+from exact_synthesis.rings import ZOmega, ZTau, N_i
 import numpy as np
 from typing import List
 import mpmath
 
 
 class ExactUnitary:
-  def __init__(self, u: Cyclotomic10, v: Cyclotomic10, k: int):
-    self.u: Cyclotomic10 = u
-    self.v: Cyclotomic10 = v
+  def __init__(self, u: ZOmega, v: ZOmega, k: int):
+    self.u: ZOmega = u
+    self.v: ZOmega = v
     self.k: int = k % 10
     self.validate()
 
@@ -21,15 +21,15 @@ class ExactUnitary:
 
   @classmethod
   def T(self) -> "ExactUnitary":
-    return ExactUnitary(Cyclotomic10.One(), Cyclotomic10.Zero(), 6)
+    return ExactUnitary(ZOmega.One(), ZOmega.Zero(), 6)
 
   @classmethod
   def F(self) -> "ExactUnitary":
-    return ExactUnitary(Cyclotomic10.Tau(), Cyclotomic10.One(), 0)
+    return ExactUnitary(ZOmega.Tau(), ZOmega.One(), 0)
 
   @classmethod
   def I(self) -> "ExactUnitary":
-    return ExactUnitary(Cyclotomic10.One(), Cyclotomic10.Zero(), 5)
+    return ExactUnitary(ZOmega.One(), ZOmega.Zero(), 5)
 
   def __mul__(self, other) -> "ExactUnitary":
     if other == self.I():
@@ -39,9 +39,9 @@ class ExactUnitary:
     elif other == self.T():
       return ExactUnitary(self.u, self.v, (self.k + 1) % 10)
     elif self == self.T():
-      return ExactUnitary(other.u, other.v * Cyclotomic10.Omega(), other.k + 1 % 10)
-    u3 = self.u * other.u + self.v.conjugate() * other.v * Cyclotomic10.Tau() * Cyclotomic10.Omega_(self.k)
-    v3 = self.v * other.u - self.u.conjugate() * other.v * Cyclotomic10.Omega_(self.k)
+      return ExactUnitary(other.u, other.v * ZOmega.Omega(), other.k + 1 % 10)
+    u3 = self.u * other.u + self.v.conjugate() * other.v * ZOmega.Tau() * ZOmega.Omega_(self.k)
+    v3 = self.v * other.u - self.u.conjugate() * other.v * ZOmega.Omega_(self.k)
     k = (other.k + self.k) % 10
     return ExactUnitary(u3, v3, k + 5 % 10)
 
@@ -50,18 +50,9 @@ class ExactUnitary:
       raise ValueError(f"Can only @ with ExactUnitary, got {type(other)}")
     return self.__mul__(other)
 
-  # def __rmul__(self, scalar):
-  #   if isinstance(scalar, Cyclotomic10):
-  #     return self.scalar_mul_left(scalar)
-  #   else:
-  #     raise TypeError("Left multiplication only supports Cyclotomic10 scalars")
-
-  # def _left_mul_scalar(self, scalar: Cyclotomic10):
-  #   return ExactUnitary(self.u * scalar, self.v * scalar, self.k)
-
   def omega_mul(self, k: int):
     """Multiply this unitary by ω^k according to w^s * U[u,v,k] = U[uw^s,vw^s,k + 2s]"""
-    omega_k = Cyclotomic10.Omega_(k)
+    omega_k = ZOmega.Omega_(k)
     u_new = self.u * omega_k
     v_new = self.v * omega_k
     new_k = (self.k + 2 * k) % 10
@@ -81,7 +72,7 @@ class ExactUnitary:
     tau = (mpmath.sqrt(5) - 1) / 2
     sqrt_tau = mpmath.sqrt(tau)
 
-    omega_k = Cyclotomic10.Omega() ** self.k
+    omega_k = ZOmega.Omega() ** self.k
 
     u_val = self.u.evaluate()
     v_val = self.v.evaluate()
@@ -121,7 +112,7 @@ class ExactUnitary:
     return ExactUnitary(self.u.conjugate(), self.v.conjugate(), -self.k % 10)
 
   def transpose(self):
-    return ExactUnitary(self.u, self.v * Cyclotomic10.Omega_(-self.k % 10), self.k)
+    return ExactUnitary(self.u, self.v * ZOmega.Omega_(-self.k % 10), self.k)
 
   @classmethod
   def from_gates_string(self, gates: List[str]):
@@ -139,7 +130,7 @@ class ExactUnitary:
     return f"U{str(self.u), str(self.v), self.k}"
 
   @classmethod
-  def sigma1(self):
+  def sigma1(self) -> "ExactUnitary":
     """
     Returns sigma1 as an exact unitary from the <F,T> circuit (wI)^6 T^7
     """
@@ -147,7 +138,7 @@ class ExactUnitary:
     return wI6 @ (self.T() ** 7)
 
   @classmethod
-  def sigma2(self):
+  def sigma2(self) -> "ExactUnitary":
     """
     Returns sigma2 as an exact unitary (wI)^6 F T^7 F
     """

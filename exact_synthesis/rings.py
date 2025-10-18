@@ -3,7 +3,11 @@ from mpmath import mp
 from typing import List, Tuple
 
 
-class Cyclotomic10:
+class ZOmega:
+  """
+  Ring of Cyclotomic integers of order 10
+  """
+
   def __init__(self, c0: int, c1: int, c2: int, c3: int) -> None:
     self.c0: int = c0
     self.c1: int = c1
@@ -13,9 +17,9 @@ class Cyclotomic10:
   def coeffs(self) -> List[int]:
     return [self.c0, self.c1, self.c2, self.c3]
 
-  def __mul__(self, other) -> "Cyclotomic10":
+  def __mul__(self, other) -> "ZOmega":
     if isinstance(other, int):
-      return self.__mul__(Cyclotomic10.from_int(other))
+      return self.__mul__(ZOmega.from_int(other))
     elif isinstance(other, ZTau):
       return self.__mul__(other.to_cycl())
     exponents_coeffs = [
@@ -29,7 +33,7 @@ class Cyclotomic10:
     ]
     result = [0, 0, 0, 0]
     a = self.coeffs()
-    b = other.coeffs() if isinstance(other, Cyclotomic10) else other
+    b = other.coeffs() if isinstance(other, ZOmega) else other
     for i in range(4):
       for j in range(4):
         k = i + j
@@ -39,7 +43,7 @@ class Cyclotomic10:
         result[1] += term * coeffs[1]
         result[2] += term * coeffs[2]
         result[3] += term * coeffs[3]
-    return Cyclotomic10(*result)
+    return ZOmega(*result)
 
   def __rmul__(self, other):
     return self.__mul__(other)
@@ -75,11 +79,11 @@ class Cyclotomic10:
 
   @classmethod
   def Tau(cls):
-    return Cyclotomic10(0, 0, 1, -1)
+    return ZOmega(0, 0, 1, -1)
 
   @classmethod
   def Omega(cls):
-    return Cyclotomic10(0, 1, 0, 0)
+    return ZOmega(0, 1, 0, 0)
 
   @classmethod
   def Omega_(cls, k: int):
@@ -87,20 +91,20 @@ class Cyclotomic10:
 
   def conjugate(self):
     c0, c1, c2, c3 = self.coeffs()
-    return Cyclotomic10(c0 + c1, -c1, c1 - c3, -c1 - c2)
+    return ZOmega(c0 + c1, -c1, c1 - c3, -c1 - c2)
 
   def automorphism(self):
     c0, c1, c2, c3 = self.coeffs()
-    return Cyclotomic10(c0 + c3, -c2 - c3, c3, c1 - c3)
+    return ZOmega(c0 + c3, -c2 - c3, c3, c1 - c3)
 
-  def galois_automorphism(self, k: int) -> "Cyclotomic10":
+  def galois_automorphism(self, k: int) -> "ZOmega":
     if k == 1:
       return self
     elif k == 3:
       return self.automorphism()
     elif k == 7:
       c0, c1, c2, c3 = self.coeffs()
-      return Cyclotomic10(c0, c3, -c1, 0) + self.from_omega_4(c2)
+      return ZOmega(c0, c3, -c1, 0) + self.from_omega_4(c2)
     elif k == 9:
       return self.automorphism().automorphism()
     else:
@@ -110,16 +114,16 @@ class Cyclotomic10:
     conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     a, b, c, d = conjs.coeffs()
     N = self.galois_norm()
-    return Cyclotomic10(a // N, b // N, c // N, d // N)
+    return ZOmega(a // N, b // N, c // N, d // N)
 
   def pseudo_inv(self):
     conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
-    return Cyclotomic10(*conjs.coeffs())
+    return ZOmega(*conjs.coeffs())
 
   def galois_automorphism_product(self):
     return self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
 
-  def __divmod__(self, other) -> tuple["Cyclotomic10", "Cyclotomic10"]:
+  def __divmod__(self, other) -> tuple["ZOmega", "ZOmega"]:
     def rounddiv(x: int, y: int):
       return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
 
@@ -143,7 +147,7 @@ class Cyclotomic10:
     return q
 
   def __div__(self, other):
-    raise NotImplementedError("Only __floordiv__ available as we implement over Integers")
+    raise NotImplementedError("Only __floordiv__ available as ZOmega only supports Integer coefficients.")
 
   def galois_norm(self) -> int:
     norm = self * self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
@@ -166,7 +170,7 @@ class Cyclotomic10:
   def mod_one_plus_omega(self) -> int:
     """
     Compute eta mod (1 + ω) by substituting ω = -1.
-    The result is an integer (ℤ), in the range {0, ±1, ±2}.
+    The result is an integer , in the set {0, ±1, ±2}.
     """
     c0, c1, c2, c3 = self.coeffs()
     result = c0 - c1 + c2 - c3
@@ -195,8 +199,8 @@ class Cyclotomic10:
     return self.coeffs() == other.coeffs()
 
   def __add__(self, other):
-    if isinstance(other, Cyclotomic10):
-      return Cyclotomic10(
+    if isinstance(other, ZOmega):
+      return ZOmega(
         self.coeffs()[0] + other.coeffs()[0],
         self.coeffs()[1] + other.coeffs()[1],
         self.coeffs()[2] + other.coeffs()[2],
@@ -204,7 +208,7 @@ class Cyclotomic10:
       )
     elif isinstance(other, int):
       a, b, c, d = self.coeffs()
-      return Cyclotomic10(a + other, b, c, d)
+      return ZOmega(a + other, b, c, d)
 
   def __neg__(self):
     return self.__class__(-self.c0, -self.c1, -self.c2, -self.c3)
@@ -227,6 +231,10 @@ class Cyclotomic10:
 
 
 class ZTau:
+  """
+  Real subring of ZOmega, also integers adjoint (\sqrt(5) - 1) / 2
+  """
+
   def __init__(self, a: int, b: int):
     self.a: int = a
     self.b: int = b
@@ -234,7 +242,6 @@ class ZTau:
   def __mul__(self, other):
     if not isinstance(other, ZTau):
       other = ZTau.from_int(other)
-    # (a + bτ)(c + dτ) = (ac + bd) + (ad + bc - bd)τ
     a, b = self.a, self.b
     c, d = other.a, other.b
 
@@ -261,8 +268,8 @@ class ZTau:
   def from_int(self, n: int):
     return ZTau(n, 0)
 
-  def to_cycl(self) -> Cyclotomic10:
-    return Cyclotomic10(self.a, 0, self.b, -self.b)
+  def to_cycl(self) -> ZOmega:
+    return ZOmega(self.a, 0, self.b, -self.b)
 
   def to_int(self) -> int:
     if self.b == 0:
@@ -381,7 +388,7 @@ class ZTau:
     k = N(other.to_cycl())  # TODO: check why this is different when casting
 
     q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
-    q_cyclo = Cyclotomic10(*q_coeffs)
+    q_cyclo = ZOmega(*q_coeffs)
 
     q = q_cyclo.to_subring()
 
@@ -403,17 +410,17 @@ def N_tau(xi: ZTau) -> int:
 
 
 # A8
-def N_i(eta: Cyclotomic10) -> ZTau:
+def N_i(eta: ZOmega) -> ZTau:
   return (eta * eta.conjugate()).to_subring()
 
 
 # A9
-def N(eta: Cyclotomic10) -> int:
+def N(eta: ZOmega) -> int:
   return N_tau(N_i(eta))
 
 
 # A10
-def gauss_complexity_measure(eta: Cyclotomic10) -> int:
+def gauss_complexity_measure(eta: ZOmega) -> int:
   """
   N_i(eta) + N_i(eta^aut) evaluates to a ZTau, but since this equation is idempotent over autimorphisms, we can just cast to int.
   """

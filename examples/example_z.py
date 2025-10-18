@@ -12,9 +12,9 @@ if __name__ == "__main__":
     try:
       g = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
       print(d_z(phi, g))
-
+      print(f"Gate sequence: {ExactFibonacciSynthesizer._exact_synthesize(g)}")
       actual = Gates.Rz(phi)
-      approx = (g * ExactUnitary.T() ** 5).to_numpy(1e-10)
+      approx = (g * ExactUnitary.T() ** 5).to_numpy(1e-70)
 
       print(f"Approximation: {approx}")
       print("Actual matrix: ", actual)

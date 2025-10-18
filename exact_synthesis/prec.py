@@ -1,8 +1,11 @@
-from exact_synthesis.rings import Cyclotomic10, ZTau
+from exact_synthesis.rings import ZOmega, ZTau
 import mpmath
 import random
+import matplotlib.pyplot as plt
+import numpy as np
 
-def APPROX_REAL(x, n) -> ZTau:
+
+def approx_real(x, n) -> ZTau:
   TAU = (mpmath.sqrt(5) - 1) / 2
   PHI = TAU + 1
   x = mpmath.mpf(x)
@@ -32,11 +35,7 @@ def APPROX_REAL(x, n) -> ZTau:
   return ZTau(int(a), int(b))
 
 
-def RANDOM_SAMPLE(theta, epsilon, r) -> Cyclotomic10:
-  """
-  Implements the RANDOM-SAMPLE algorithm with arbitrary precision using mpmath.
-  Returns a Cyclotomic10MP element.
-  """
+def random_sample(theta, epsilon, r) -> ZOmega:
   TAU = (mpmath.sqrt(5) - 1) / 2
   PHI = TAU + 1
   tau = mpmath.mpf(TAU)
@@ -64,15 +63,65 @@ def RANDOM_SAMPLE(theta, epsilon, r) -> Cyclotomic10:
   y = ymin + j * (ymax - ymin) / N
 
   y_prime = y / mpmath.sqrt(2 - tau)
-  yy = APPROX_REAL(y_prime, m)
-
+  yy = approx_real(y_prime, m)
+  
   y_approx = (yy.a + yy.b * tau) * mpmath.sqrt(2 - tau)
   x = xc - (y_approx - ymin) * mpmath.tan(theta)
 
-  xx = APPROX_REAL(x, m)
+  xx = approx_real(x, m)
 
   part1 = xx
-  part2 = yy.to_cycl() * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
+  part2 = yy.to_cycl() * (ZOmega.Omega() + ZOmega.Omega_(4))
   result = part1.to_cycl() + part2
 
   return result
+
+
+def RANDOM_SAMPLE_DEBUG(theta, epsilon, r):
+  TAU = (mpmath.sqrt(5) - 1) / 2
+  PHI = TAU + 1
+  tau = mpmath.mpf(TAU)
+  phi = mpmath.mpf(PHI)
+  theta = mpmath.mpf(theta)
+  assert 0 <= theta < mpmath.pi / 5, f"was {theta} instead"
+  assert r >= 1, f"r must be >= 1, was {r}"
+  epsilon = mpmath.mpf(epsilon)
+  r = mpmath.mpf(r)
+
+  C = mpmath.sqrt(phi / (4 * r))
+  m = int(mpmath.ceil(mpmath.log(C * epsilon * r, tau))) + 1
+  N = int(mpmath.ceil(phi**m))
+
+  sin_theta = mpmath.sin(theta)
+  cos_theta = mpmath.cos(theta)
+  sqrt_expr = mpmath.sqrt(4 - epsilon**2)
+  rpm = r * phi**m
+
+  ymin = rpm * (sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
+  ymax = rpm * (sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
+
+  xmax = rpm * ((1 - epsilon**2 / 2) * cos_theta - epsilon * mpmath.sqrt(1 - epsilon**2 / 4) * sin_theta)
+  xc = xmax - (rpm * epsilon**2) / (4 * cos_theta)
+
+  j = random.randint(1, N - 1)
+  y = ymin + j * (ymax - ymin) / N
+
+  y_prime = y / mpmath.sqrt(2 - tau)
+  print("M : ", m)
+  yy = approx_real(y_prime, m)
+
+  print("YPRIME: ", y_prime)
+  print("YPRIMEAPPROX: ", yy.evaluate())
+  # TODO: handle y_prime completely with Cyclotomic10
+  y_approx = (yy.evaluate()) * mpmath.sqrt(2 - tau)
+  x = xc - (y_approx - ymin) * mpmath.tan(theta)
+
+  xx = approx_real(x, m)
+
+  part1 = xx
+  part2 = yy.to_cycl() * (ZOmega.Omega() + ZOmega.Omega_(4))
+  result = part1.to_cycl() + part2
+
+  return result, ymin, ymax, xc, yy, xx, x, xmax, m
+
+

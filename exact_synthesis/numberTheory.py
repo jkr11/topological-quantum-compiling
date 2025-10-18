@@ -1,6 +1,6 @@
 import math
 import random
-from exact_synthesis.rings import Cyclotomic10, ZTau, N_tau, N_i
+from exact_synthesis.rings import ZOmega, ZTau, N_tau, N_i
 from typing import List, Tuple, Union
 
 
@@ -30,7 +30,7 @@ def is_square(n: int) -> Union[int, None]:
   return None
 
 
-def IS_PRIME(p: int) -> bool:
+def is_prime(p: int) -> bool:
   return miller_rabin(p)
 
 
@@ -70,11 +70,11 @@ def miller_rabin(n: int, k: int = 7) -> bool:
 def easy_solvable_predicate(xi: ZTau):
   Nt = N_tau(xi)
   is_positive = xi > 0 and xi.automorphism() > 0
-  is_prime = IS_PRIME(Nt) and (Nt % 5 == 1)
+  is_prime = is_prime(Nt) and (Nt % 5 == 1)
   return is_positive and is_prime
 
 
-def EASY_SOLVABLE(fl: List[Tuple[ZTau, int]]) -> bool:
+def easy_solvable(fl: List[Tuple[ZTau, int]]) -> bool:
   for i in range(0, len(fl)):
     xi, k = fl[i]
     if k % 2 == 0:
@@ -82,12 +82,12 @@ def EASY_SOLVABLE(fl: List[Tuple[ZTau, int]]) -> bool:
     elif xi != ZTau(5, 0):
       p: int = N_tau(xi)
       r = p % 5
-      if not IS_PRIME(p) or r not in [0, 1]:
+      if not is_prime(p) or r not in [0, 1]:
         return False
   return True
 
 
-def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
+def easy_factor(xi: ZTau) -> List[Tuple[ZTau, int]]:
   if isinstance(xi, int):
     xi = ZTau(xi, 0)
   a, b = xi.a, xi.b
@@ -117,7 +117,7 @@ def EASY_FACTOR(xi: ZTau) -> List[Tuple[ZTau, int]]:
     return ret
 
 
-def UNIT_DLOG(u: ZTau) -> Tuple[int, int]:
+def unit_dlog(u: ZTau) -> Tuple[int, int]:
   """
   Finds discrete logarithm of a unit u in Z[τ]
   Returns (s,k) such that u = s * τ^k where s = ±1
@@ -235,24 +235,24 @@ def splitting_root(xi: ZTau) -> Tuple[int, int]:
   return tonelli_shanks(n, p)
 
 
-def gcd(a: Cyclotomic10, b: Cyclotomic10) -> Cyclotomic10:
-  while b != Cyclotomic10.Zero():
+def gcd(a: ZOmega, b: ZOmega) -> ZOmega:
+  while b != ZOmega.Zero():
     q, r = divmod(a, b)
     assert a == b * q + r, f"Verification failed: a = {a}, b*q + r = {b * q + r}"
     a, b = b, r
   return a
 
 
-def solve_norm_equation(xi: ZTau) -> Cyclotomic10:
+def solve_norm_equation(xi: ZTau) -> ZOmega:
   """
-  Outputs x in Z[omega] such that |x|² = xi in Z[\tau]
+  Outputs x in Z[omega] such that |x|² = xi in Z[tau]
   """
   if xi.evaluate() < 0 or xi.automorphism().evaluate() < 0:
     raise ValueError(f"{xi.evaluate} or its aut is < 0.")
-  fl = EASY_FACTOR(xi)
-  if not EASY_SOLVABLE(fl):
+  fl = easy_factor(xi)
+  if not easy_solvable(fl):
     raise ValueError(f"{xi} is not easy solvable.")
-  x: Cyclotomic10 = Cyclotomic10.One()
+  x: ZOmega = ZOmega.One()
   for i in range(len(fl)):
     xii: ZTau = fl[i][0]
     if isinstance(xii, int):
@@ -264,16 +264,18 @@ def solve_norm_equation(xi: ZTau) -> Cyclotomic10:
         x = x * (ZTau(1, 2))
       else:
         if xii == ZTau(2, -1):
-          x = x * (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
+          x = x * (ZOmega.Omega() + ZOmega.Omega_(4))
         else:
           M: Tuple[int, int] = splitting_root(xii)
 
-          y: Cyclotomic10 = gcd(
-            xii.to_cycl(), Cyclotomic10.from_int(M[0]) - (Cyclotomic10.Omega() + Cyclotomic10.Omega_(4))
-          )  # here, we have to cast up for representing sqrt(tau - 2), which is not in ZTau
+          y: ZOmega = gcd(xii.to_cycl(), ZOmega.from_int(M[0]) - (ZOmega.Omega() + ZOmega.Omega_(4)))  # here, we have to cast up for representing sqrt(tau - 2), which is not in ZTau
           print(type(xii))
           u = xii // N_i(y)
-          s, m = UNIT_DLOG(u)
+          s, m = unit_dlog(u)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
-          x = x * (Cyclotomic10.Tau() ** (m // 2)) * y
+          x = x * (ZOmega.Tau() ** (m // 2)) * y
   return x
+
+
+def epsilon_region(r: float, theta: float):
+  pass

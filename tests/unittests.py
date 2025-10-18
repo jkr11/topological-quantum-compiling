@@ -2,28 +2,36 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from exact_synthesis.rings import Cyclotomic10, ZTau
-from exact_synthesis.numberTheory import solve_norm_equation, N_i, EASY_FACTOR
+from exact_synthesis.rings import ZOmega, ZTau
+from exact_synthesis.numberTheory import solve_norm_equation, N_i, easy_factor
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
+from exact_synthesis.prec import random_sample
 
+class TestRandomSample(unittest.TestCase):
+  def test_random_sample(self):
+    theta = 1/10
+    epsilon = 1e-10
+    r = 1.0
+    appr = random_sample(theta, epsilon, r)
+    
 
 class TestGaussComplexity(unittest.TestCase):
   def test_proposition_4_a(self):
     for i in range(10):
-      omega = Cyclotomic10.Omega_(i)
+      omega = ZOmega.Omega_(i)
       self.assertEqual(omega.gauss_complexity().evaluate(), 2)
 
   def test_zero(self):
-    zero = Cyclotomic10(0, 0, 0, 0)
+    zero = ZOmega(0, 0, 0, 0)
     self.assertEqual(zero.gauss_complexity().evaluate(), 0)
 
   def test_c(self):
-    c = Cyclotomic10(1, 2, 3, 4)
+    c = ZOmega(1, 2, 3, 4)
     self.assertTrue(c.gauss_complexity().evaluate() >= 3)
 
   def test_upper_bound(self):
-    num = Cyclotomic10(1, 2, 3, 4)
+    num = ZOmega(1, 2, 3, 4)
     bound = 5 / 2 * (1 + 4 + 9 + 16)
     self.assertTrue(num.gauss_complexity().evaluate() <= bound, f"Expected {num.gauss_complexity().evaluate()} <= {bound}")
 
@@ -32,7 +40,7 @@ class TestEasyFactor(unittest.TestCase):
   def test_paper_example(self):
     solution = [(2, 2), (5, 1), (ZTau(2, -1), 1), (ZTau(15, -8), 1)]
     xi = ZTau(760, -780)
-    EF = EASY_FACTOR(xi)
+    EF = easy_factor(xi)
     self.assertEqual(EF, solution)
 
 
@@ -45,23 +53,23 @@ class TestNormEquation(unittest.TestCase):
 
 class TestCyclotomic10(unittest.TestCase):
   def test_automorphism(self):
-    tau = Cyclotomic10.Tau()
-    phi = Cyclotomic10.Tau() + Cyclotomic10.One()
+    tau = ZOmega.Tau()
+    phi = ZOmega.Tau() + ZOmega.One()
     self.assertEqual(tau.automorphism(), -phi)
 
   def test_omega_4th_power(self):
-    omega = Cyclotomic10(0, 1, 0, 0)
-    self.assertEqual(omega**4, Cyclotomic10(-1, 1, -1, 1))
+    omega = ZOmega(0, 1, 0, 0)
+    self.assertEqual(omega**4, ZOmega(-1, 1, -1, 1))
 
   def test_division_example(self):
-    y = Cyclotomic10(3, 2, -7, 7)
+    y = ZOmega(3, 2, -7, 7)
     yy = N_i(y)
-    x = Cyclotomic10(15, 0, -8, 8) // yy.to_cycl()
+    x = ZOmega(15, 0, -8, 8) // yy.to_cycl()
     self.assertEqual(x.to_subring(), ZTau(5, 3))
 
   def test_divmod(self):
-    a = Cyclotomic10(3, 2, -1, 0)
-    b = Cyclotomic10(1, 0, 1, 1)
+    a = ZOmega(3, 2, -1, 0)
+    b = ZOmega(1, 0, 1, 1)
 
     q, r = divmod(a, b)
     lhs = b * q + r
@@ -71,12 +79,12 @@ class TestCyclotomic10(unittest.TestCase):
 class TestExactUnitary(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
-    cls.omega = Cyclotomic10(0, 1, 0, 0)
+    cls.omega = ZOmega(0, 1, 0, 0)
     cls.tau = cls.omega**2 - cls.omega**3
 
-    cls.T = ExactUnitary(Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 0, 0), 6)
-    cls.F = ExactUnitary(cls.tau, Cyclotomic10(1, 0, 0, 0), 0)
-    cls.I = ExactUnitary(Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 0, 0), 0)
+    cls.T = ExactUnitary(ZOmega(1, 0, 0, 0), ZOmega(0, 0, 0, 0), 6)
+    cls.F = ExactUnitary(cls.tau, ZOmega(1, 0, 0, 0), 0)
+    cls.I = ExactUnitary(ZOmega(1, 0, 0, 0), ZOmega(0, 0, 0, 0), 0)
 
   def test_F_squared_eq_one(self):
     tt = ExactUnitary.F()
@@ -89,17 +97,17 @@ class TestExactUnitary(unittest.TestCase):
     self.assertEqual(test, ExactUnitary.I())
 
   def test_omega_10th_power(self):
-    o = Cyclotomic10(0, 1, 0, 0)
+    o = ZOmega(0, 1, 0, 0)
     test = o**10
-    self.assertEqual(test, Cyclotomic10.One())
+    self.assertEqual(test, ZOmega.One())
 
   def test_identity_multiplication(self):
     # I * I = I
     T = ExactUnitary.T()
     I = T**10
     result = I * I
-    self.assertEqual(result.u, Cyclotomic10(1, 0, 0, 0))
-    self.assertEqual(result.v, Cyclotomic10(0, 0, 0, 0))
+    self.assertEqual(result.u, ZOmega(1, 0, 0, 0))
+    self.assertEqual(result.v, ZOmega(0, 0, 0, 0))
     self.assertEqual(result.k, 5)
 
     # I * T = T
@@ -126,7 +134,7 @@ class TestExactUnitary(unittest.TestCase):
       3,
       13,
     ]  # I think the table in the paper is wrong here, the first n needs to be 2. Check the released version for this
-    comp = [Cyclotomic10(1, 0, 0, 0), Cyclotomic10(0, 0, 1, -1), Cyclotomic10(2, -1, 0, 1)]
+    comp = [ZOmega(1, 0, 0, 0), ZOmega(0, 0, 1, -1), ZOmega(2, -1, 0, 1)]
     for i in range(0, 3):
       self.assertEqual(comp[i].gauss_complexity().evaluate().real, res[i])
 

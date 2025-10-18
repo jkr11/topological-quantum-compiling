@@ -4,8 +4,7 @@ from typing import List, Tuple, Dict
 from enum import Enum
 import itertools
 from exact_synthesis.util import Gates
-
-import scipy as sp
+import scipy as sp  # type: ignore
 from typing import Any
 
 
@@ -17,7 +16,7 @@ class Gate:
   tensor: Tensor
   name: List[str]
 
-  def __matmul__(self, other):
+  def __matmul__(self, other: "Gate"):
     return Gate(self.tensor @ other.tensor, self.name + other.name)
 
   def adjoint(self) -> "Gate":
@@ -33,11 +32,11 @@ def pzgate(phase: complex) -> Tensor:
 
 
 def Tgate() -> Gate:
-  return Gate(pzgate(np.exp(1j * np.pi / 4)), "T")
+  return Gate(pzgate(np.exp(1j * np.pi / 4)), ["T"])
 
 
 def Hgate() -> Gate:
-  return Gate(hgate(), "H")
+  return Gate(hgate(), ["H"])
 
 
 Nomega = np.exp(1j * np.pi / 5)
@@ -55,11 +54,11 @@ sigma2 = Fnp @ sigma1 @ Fnp.T
 
 
 def S1gate() -> Gate:
-  return Gate(sigma1, "S1")
+  return Gate(sigma1, ["S1"])
 
 
 def S2gate() -> Gate:
-  return Gate(sigma2, "S2")
+  return Gate(sigma2, ["S2"])
 
 
 def rx(theta: float) -> np.ndarray:
@@ -138,24 +137,24 @@ def _create_gate_list(gate_dict: Dict[int, Gate], max_len: int = 5) -> List[Gate
   return gate_list
 
 
-def _create_gate_list() -> List[Gate]:
-  """Create the basic gate list by concatenating Hs and Ts."""
-  gate_list = []
-  binary_list = _generate_binary_list()
-  for bits in binary_list:
-    u = Gate(np.eye(2), "")
-
-    for bit in bits:
-      if bit:
-        gate = S1gate()
-      else:
-        gate = S2gate()
-
-      u = u @ gate
-
-    gate_list.append(u)
-
-  return gate_list
+# def _create_gate_list() -> List[Gate]:
+#   """Create the basic gate list by concatenating Hs and Ts."""
+#   gate_list = []
+#   binary_list = _generate_binary_list()
+#   for bits in binary_list:
+#     u = Gate(np.eye(2), [""])
+#
+#     for bit in bits:
+#       if bit:
+#         gate = S1gate()
+#       else:
+#         gate = S2gate()
+#
+#       u = u @ gate
+#
+#     gate_list.append(u)
+#
+#   return gate_list
 
 
 def trace_dist(u: Tensor, v: Tensor) -> float:
@@ -283,9 +282,9 @@ _FIBONACCI_BASIS = {
 }
 
 
-def _SU2_transform(U):
+def _SU2_transform(U: Tensor) -> tuple[Tensor, float]:
   """Strip global phase and return SU(2)-normalized matrix and global phase."""
-  phase = np.angle(np.linalg.det(U)) / 2
+  phase: float = np.angle(np.linalg.det(U)) / 2
   su2 = U * np.exp(-1j * phase)
   return su2, phase % np.pi
 
@@ -297,47 +296,12 @@ def _is_approximated(target_op: np.ndarray, ops: List[np.ndarray] = None, kd_tre
   return (dist[0] < tol, gate_points[0], indx[0])
 
 
-def _build_eps_net(gate_set: dict[str, np.ndarray], max_depth=10):
-  gates = list(gate_set.keys())
-  gate_mats = {k: _SU2_transform(v)[0] for k, v in gate_set.items()}
-  gate_phases = {k: _SU2_transform(v)[1] for k, v in gate_set.items()}
-
-  approx_ids = [[g] for g in gates]
-  approx_mats = [gate_mats[g] for g in gates]
-  approx_phs = [gate_phases[g] for g in gates]
-  approx_quats = [_to_quaternion(m) for m in approx_mats]
-
-  for depth in range(max_depth - 1):
-    kdtree = sp.spatial.KDTree(np.array(approx_quats))
-    new_ids, new_mats, new_phs, new_quats = [], [], [], []
-    for seq, mat, phase in zip(approx_ids, approx_mats, approx_phs):
-      for g in gates:
-        if len(seq) > 0 and seq[-1] == g + "*":
-          continue
-        new_seq = seq + [g]
-        total_phase = gate_phases[g] + phase
-        new_mat = (-1) ** (total_phase >= np.pi) * gate_mats[g] @ mat
-        norm_phase = total_phase % np.pi
-        exists, quat, idx = _is_approximated(new_mat, kd_tree=kdtree)
-        if not exists or norm_phase != approx_phs[idx]:
-          new_ids.append(new_seq)
-          new_mats.append(new_mat)
-          new_phs.append(norm_phase)
-          new_quats.append(quat)
-    approx_ids += new_ids
-    approx_mats += new_mats
-    approx_phs += new_phs
-    approx_quats += new_quats
-  return approx_ids, approx_mats, approx_phs, approx_quats
-
-
 def __run_example():
   target_unit = np.array([[0, 1], [1, 0]])
-  sk = SolovayKitaev(_create_gate_list())
+  sk = SolovayKitaev(_create_gate_list(_CLIFFORD_T_BASIS, 7))
   gates = sk.solovay_kitaev(target_unit, 4)
   assert np.allclose(eval_circuit(gates), target_unit)
 
 
 if __name__ == "__main__":
-  i, m, p, q = _build_eps_net(_FIBONACCI_BASIS, max_depth=6)
-  print(q)
+  __run_example()

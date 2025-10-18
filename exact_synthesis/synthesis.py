@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from typing import List, Union
 import math
 from exact_synthesis.exactUnitary import ExactUnitary
-from exact_synthesis.rings import Cyclotomic10, ZTau, N_i
-from exact_synthesis.numberTheory import EASY_FACTOR, EASY_SOLVABLE, solve_norm_equation
-from exact_synthesis.prec import RANDOM_SAMPLE
+from exact_synthesis.rings import ZOmega, ZTau, N_i
+from exact_synthesis.numberTheory import easy_factor, easy_solvable, solve_norm_equation
+from exact_synthesis.prec import random_sample
 import numpy as np
 import mpmath
 from exact_synthesis.util import euler_angles
@@ -204,23 +204,23 @@ class ExactFibonacciSynthesizer:
     if theta is None:
       raise ValueError("Failed to find suitable k.")
 
-    u = Cyclotomic10.Zero()
-    v = Cyclotomic10.Zero()
+    u = ZOmega.Zero()
+    v = ZOmega.Zero()
     not_found = True
     k = k_final
     while not_found:
-      u0 = RANDOM_SAMPLE(theta, eps, 1)
+      u0 = random_sample(theta, eps, 1)
 
       xi = ZTau.Phi() * ((ZTau.Phi() ** (2 * m)) - N_i(u0))
 
-      fl = EASY_FACTOR(xi)
+      fl = easy_factor(xi)
 
-      if EASY_SOLVABLE(fl):
+      if easy_solvable(fl):
         not_found = False
 
-        u = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** (m)) * u0
+        u = ZOmega.Omega_(k) * (ZOmega.Tau() ** (m)) * u0
 
-        v = (Cyclotomic10.Tau() ** (m)) * solve_norm_equation(xi)
+        v = (ZOmega.Tau() ** (m)) * solve_norm_equation(xi)
 
     return ExactUnitary(u, v, 0)
 
@@ -248,19 +248,19 @@ class ExactFibonacciSynthesizer:
         k = kk
         break
     assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
-    u = Cyclotomic10.Zero()
-    v = Cyclotomic10.Zero()
+    u = ZOmega.Zero()
+    v = ZOmega.Zero()
     not_found = True
     while not_found:
-      u0 = RANDOM_SAMPLE(theta, eps, r)
+      u0 = random_sample(theta, eps, r)
       xi = (ZTau.Phi() ** (2 * m)) - ZTau.Tau() * N_i(u0)
-      fl = EASY_FACTOR(xi)
+      fl = easy_factor(xi)
 
-      if EASY_SOLVABLE(fl):
+      if easy_solvable(fl):
         not_found = False
-        v = Cyclotomic10.Omega_(k) * (Cyclotomic10.Tau() ** m) * u0
+        v = ZOmega.Omega_(k) * (ZOmega.Tau() ** m) * u0
         ne = solve_norm_equation(xi)
-        u = (Cyclotomic10.Tau() ** m) * ne
+        u = (ZOmega.Tau() ** m) * ne
 
     return ExactUnitary(u, v, 0)
 
