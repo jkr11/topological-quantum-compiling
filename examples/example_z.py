@@ -5,16 +5,18 @@ from exact_synthesis.util import Gates
 
 if __name__ == "__main__":
   mpmath.mp.dps = 400
-  phi = float(4 * mpmath.pi / 1000)
-  epsilon = 1e-70
+  phi = 4 * mpmath.pi / 1000
+  epsilon = mpmath.mpf(1e-70)
 
   while True:
     try:
       g = ExactFibonacciSynthesizer.synthesize_z_rotation(phi, epsilon)
+      g = g * ExactUnitary.T() ** 5
       print(d_z(phi, g))
-      print(f"Gate sequence: {ExactFibonacciSynthesizer._exact_synthesize(g)}")
-      actual = Gates.Rz(phi)
-      approx = (g * ExactUnitary.T() ** 5).to_numpy(1e-70)
+      print(d_z(phi, g)  < epsilon)
+      print(f"Gate sequence: {len(ExactFibonacciSynthesizer._exact_synthesize(g))}")
+      actual = Gates.Rz(float(phi))
+      approx = (g).to_numpy()
 
       print(f"Approximation: {approx}")
       print("Actual matrix: ", actual)

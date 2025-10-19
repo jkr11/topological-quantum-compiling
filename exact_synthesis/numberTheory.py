@@ -70,8 +70,8 @@ def miller_rabin(n: int, k: int = 7) -> bool:
 def easy_solvable_predicate(xi: ZTau):
   Nt = N_tau(xi)
   is_positive = xi > 0 and xi.automorphism() > 0
-  is_prime = is_prime(Nt) and (Nt % 5 == 1)
-  return is_positive and is_prime
+  isprime = is_prime(Nt) and (Nt % 5 == 1)
+  return is_positive and isprime
 
 
 def easy_solvable(fl: List[Tuple[ZTau, int]]) -> bool:

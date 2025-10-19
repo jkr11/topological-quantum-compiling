@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import mpmath
 from numpy.testing import assert_almost_equal
 
 from exact_synthesis.rings import ZOmega, ZTau
@@ -8,13 +9,19 @@ from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
 from exact_synthesis.prec import random_sample
 
+
 class TestRandomSample(unittest.TestCase):
   def test_random_sample(self):
-    theta = 1/10
-    epsilon = 1e-10
-    r = 1.0
-    appr = random_sample(theta, epsilon, r)
-    
+    eps = 1 / 100
+    TAU = (mpmath.sqrt(5) - 1) / 2
+    PHI = TAU + 1
+    tau = mpmath.mpf(TAU)
+    phi = mpmath.mpf(PHI)
+    C = mpmath.sqrt(phi / 4)
+    m = mpmath.ceil(mpmath.log(C * eps, tau)) + 1
+    PREC = tau ** (m - 1) * (1 - tau**m)
+    self.assertTrue(PREC < (PHI**m * eps**2 / 4)) # This is lemma 18
+
 
 class TestGaussComplexity(unittest.TestCase):
   def test_proposition_4_a(self):
