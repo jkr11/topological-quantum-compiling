@@ -64,7 +64,7 @@ def random_sample(theta, epsilon, r) -> ZOmega:
 
   y_prime = y / mpmath.sqrt(2 - tau)
   yy = approx_real(y_prime, m)
-  
+
   y_approx = (yy.a + yy.b * tau) * mpmath.sqrt(2 - tau)
   x = xc - (y_approx - ymin) * mpmath.tan(theta)
 
@@ -125,3 +125,71 @@ def RANDOM_SAMPLE_DEBUG(theta, epsilon, r):
   return result, ymin, ymax, xc, yy, xx, x, xmax, m
 
 
+def plot_random_samples(theta, epsilon, r, num_samples=200):
+  mpmath.mp.dps = 200  # Set precision
+
+  res, ymin, ymax, xc, yy, xx, x, xmax, m = RANDOM_SAMPLE_DEBUG(theta, epsilon, 1.0)
+  # xmin_f = float(xmin)
+  xmax_f = float(xmax)
+  ymin_f = float(ymin)
+  ymax_f = float(ymax)
+  xleft = 2 * float(xc) - xmax_f
+  # Define the corners of the parallelogram
+  corners_bx = [xleft, xmax, float(xc)]
+  corners_by = [ymin, ymin, ymin]
+
+  xmin = xmax - (ymax - ymin) * mpmath.tan(theta)
+
+  print(mpmath.sqrt((xmax_f - xmin) ** 2 + (ymax_f - ymin_f)))
+
+  TAU = (mpmath.sqrt(5) - 1) / 2
+  PHI = TAU + 1
+  radius = r * PHI**m
+  print(f"Radius = {r * PHI**m}")
+  print(f"Distance (xmin, ymax): {mpmath.sqrt(ymax**2 + xmin**2)}")
+  print(f"Width = {0.5 * r * epsilon**2 * PHI**m}")
+  print(r * epsilon * PHI**m)
+
+  topleft = xmin - (xmax - xleft)
+  corners_tx = [xmin, topleft]
+  corners_ty = [ymax_f, ymax]
+
+  theta_line_length = float(ymax)  # or set to 1.5 or something custom
+
+  plt.figure(figsize=(6, 6))
+
+  plt.scatter([xleft], [ymin], color="orange")
+  plt.scatter([xleft], [ymin], color="red", alpha=0.2)
+  plt.scatter(corners_bx, corners_by, color="red", alpha=0.2)
+  plt.scatter(corners_tx, corners_ty, color="blue", alpha=0.2)
+  plt.scatter(float(x), float(yy.evaluate()), color="green")
+  circle = plt.Circle((0, 0), radius, color="blue", fill=False, linestyle="--", alpha=0.5, label=f"Circle r·φ^m")
+  plt.gca().add_patch(circle)
+  margin = 0.1 * radius
+
+  plt.xlim(float(xmin) - 3, float(xmax) + 3)
+  plt.ylim(float(ymin) - 3, float(ymax) + 3)
+
+  plt.gca().set_aspect("equal", adjustable="box")
+  # Fill parallelogram
+  # plt.fill(corners_x, corners_y, alpha=0.2, color='orange', label='ε-region')
+  # Optional: Plot the center line
+  # plt.plot([float(xc)], [ymin_f], 'rx', label='xc (base center)')
+  # Optional: Plot the sample point
+  # sample_point = complex(res.evaluate())
+  # plt.plot([sample_point.real], [sample_point.imag], 'bo', markersize=8, label='Sample')
+  # plt.gca().set_aspect('equal', adjustable='box')
+  for _ in range(num_samples - 1):
+    _, _, _, _, yy_i, _, x_i, _, _ = RANDOM_SAMPLE_DEBUG(theta, epsilon, r)
+    plt.scatter(float(x_i), float(yy_i.evaluate()), color="green", s=10, alpha=0.5)
+
+  plt.grid(True)
+  plt.xlabel("Re")
+  plt.ylabel("Im")
+  plt.title("ε-region and Sample in Complex Plane")
+  plt.legend()
+  plt.show()
+
+
+# xx = RANDOM_SAMPLE_DEBUG(1/10, 1e-10, 1.0)
+# plot_random_samples(1/10, 1e-10, 1.0, 10)
