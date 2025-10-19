@@ -7,7 +7,6 @@ from exact_synthesis.rings import ZOmega, ZTau
 from exact_synthesis.numberTheory import solve_norm_equation, N_i, easy_factor
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
-from exact_synthesis.prec import random_sample
 
 
 class TestRandomSample(unittest.TestCase):
@@ -20,7 +19,7 @@ class TestRandomSample(unittest.TestCase):
     C = mpmath.sqrt(phi / 4)
     m = mpmath.ceil(mpmath.log(C * eps, tau)) + 1
     PREC = tau ** (m - 1) * (1 - tau**m)
-    self.assertTrue(PREC < (PHI**m * eps**2 / 4)) # This is lemma 18
+    self.assertTrue(PREC < (PHI**m * eps**2 / 4))  # This is lemma 18
 
 
 class TestGaussComplexity(unittest.TestCase):
