@@ -331,7 +331,7 @@ def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
 
 def d_z(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
-  return mpmath.sqrt(1 - abs((U.u.evaluate() * mpmath.exp(1j * phi / 2)).real))
+  return mpmath.sqrt(1 - mpmath.fabs(mpmath.re(U.u.evaluate() * mpmath.exp(1j * phi / 2))))
 
 
 def d_zx(phi, U: ExactUnitary):
