@@ -126,8 +126,8 @@ def unit_dlog(u: ZTau) -> Tuple[int, int]:
   s, k = 1, 0
 
   if a < 0:
-    a, b = -a, -b
-    s = -s
+    a, b, s = -a, -b, -s
+
   if b == 0 and a == 1:
     return (1, 0)
   elif b == 0 and a == -1:
@@ -137,16 +137,18 @@ def unit_dlog(u: ZTau) -> Tuple[int, int]:
   elif a == 0 and b == -1:
     return (-s, 1)
   mu = a * b
+  print("MU IS: ", mu, a, b)
   while abs(mu) > 1:
+    print(f"A: {a}, B : {b}")
     if mu > 1:
-      a, b = b, a - b
+      a, b = b - a, a
       k = k - 1
-    else:
-      a, b = a, a - b
+    elif mu < -1:
+      a, b = a + b, a
       k = k + 1
     mu = a * b
   assert abs(mu) == 1, "Failed to reduce unit to base units"
-
+  print("MU IS: ", mu)
   match (a, b):
     case (1, 0):  # 1
       pass
@@ -279,3 +281,8 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
 
 def epsilon_region(r: float, theta: float):
   pass
+
+
+if __name__ == "__main__":
+  x = ZTau.Tau()**5
+  print(unit_dlog(x))

@@ -17,7 +17,7 @@ class ExactUnitary:
     norm_v_sq = N_i(self.v)
     left = norm_u_sq + (ZTau.Tau() * norm_v_sq)
     if left != ZTau.One():
-      raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1")
+      raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1 and as ZTau: {left}")
 
   @classmethod
   def T(self) -> "ExactUnitary":

@@ -194,13 +194,13 @@ class ExactFibonacciSynthesizer:
 
     pi_over_5 = math.pi / 5
 
-    for k in range(-10, 10):
+    for k in range(-11, 11):
       theta_candidate = -phi / 2 - math.pi * (k / 5)
       if 0 <= theta_candidate <= pi_over_5:
         theta = theta_candidate
         k_final = k
         break
-    # assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
+    assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
     if theta is None:
       raise ValueError("Failed to find suitable k.")
 
@@ -218,9 +218,9 @@ class ExactFibonacciSynthesizer:
       if easy_solvable(fl):
         not_found = False
 
-        u = ZOmega.Omega_(k) * (ZOmega.Tau() ** (m)) * u0
+        u = ZOmega.Omega()**k * (ZOmega.Tau() ** m) * u0
 
-        v = (ZOmega.Tau() ** (m)) * solve_norm_equation(xi)
+        v = (ZOmega.Tau() ** m) * solve_norm_equation(xi)
 
     return ExactUnitary(u, v, 0)
 

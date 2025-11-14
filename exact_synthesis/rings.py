@@ -198,7 +198,7 @@ class ZOmega:
   def __eq__(self, other):
     return self.coeffs() == other.coeffs()
 
-  def __add__(self, other):
+  def __add__(self, other) -> "ZOmega":
     if isinstance(other, ZOmega):
       return ZOmega(
         self.coeffs()[0] + other.coeffs()[0],
@@ -209,6 +209,8 @@ class ZOmega:
     elif isinstance(other, int):
       a, b, c, d = self.coeffs()
       return ZOmega(a + other, b, c, d)
+    else:
+      raise ValueError(f"__add__ for ZOmega does not support {other}.")
 
   def __neg__(self):
     return self.__class__(-self.c0, -self.c1, -self.c2, -self.c3)
@@ -306,18 +308,19 @@ class ZTau:
 
   def __pow__(self, exponent: int):
     if not isinstance(exponent, int):
-      return ValueError(f"exponent must be integer, was {type(exponent)}")
-
+      raise ValueError(f"exponent must be integer, was {type(exponent)}")
     if exponent == 0:
       return ZTau(1, 0)
+    if exponent > 0:
+      result = ZTau(1, 0)
+      for _ in range(exponent):
+        result = result * self
+      return result
 
-    if exponent < 0:
-      raise ValueError(f"exponent must be positive integer, was {exponent}")
-
+    inv = self.inv()
     result = ZTau(1, 0)
-    for _ in range(exponent):
-      result = result * self
-
+    for _ in range(-exponent):
+      result = result * inv
     return result
 
   def __neg__(self):

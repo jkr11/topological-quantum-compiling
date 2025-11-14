@@ -44,7 +44,7 @@ def random_sample(theta, epsilon, r) -> ZOmega:
   r = mpmath.mpf(r)
 
   C = mpmath.sqrt(phi / (4 * r))
-  m = int(mpmath.ceil(mpmath.log(C * epsilon * r) / mpmath.log(tau))) + 1
+  m = int(mpmath.ceil(mpmath.log(C * epsilon * r,tau), prec=0)) + 1
   N = int(mpmath.ceil(phi**m))
 
   sin_theta = mpmath.sin(theta)
@@ -63,13 +63,13 @@ def random_sample(theta, epsilon, r) -> ZOmega:
   y_prime = y / mpmath.sqrt(2 - tau)
   yy = approx_real(y_prime, m)
 
-  y_approx = (yy.a + yy.b * tau) * mpmath.sqrt(2 - tau)
-  x = xc - (y_approx - ymin) * mpmath.tan(theta)
+  y_approx = (yy.evaluate()) * mpmath.sqrt(2 - tau)
+  x = xc - (y - ymin) * sin_theta/cos_theta
 
   xx = approx_real(x, m)
 
   part1 = xx
-  part2 = yy.to_cycl() * (ZOmega.Omega() + ZOmega.Omega_(4))
+  part2 = yy.to_cycl() * (ZOmega.Omega() + ZOmega.Omega()**4)
   result = part1.to_cycl() + part2
 
   return result
