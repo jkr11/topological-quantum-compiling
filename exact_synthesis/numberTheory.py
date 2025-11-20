@@ -66,14 +66,6 @@ def miller_rabin(n: int, k: int = 7) -> bool:
       return False
   return True
 
-
-def easy_solvable_predicate(xi: ZTau):
-  Nt = N_tau(xi)
-  is_positive = xi > 0 and xi.automorphism() > 0
-  isprime = is_prime(Nt) and (Nt % 5 == 1)
-  return is_positive and isprime
-
-
 def easy_solvable(fl: List[Tuple[ZTau, int]]) -> bool:
   for i in range(0, len(fl)):
     xi, k = fl[i]
@@ -96,7 +88,7 @@ def easy_factor(xi: ZTau) -> List[Tuple[ZTau, int]]:
   b1 = b // c
   xi1 = ZTau(a1, b1)
   ret: List[Tuple[ZTau, int]] = []
-  d: int = is_square(c)
+  d = is_square(c)
   if d is not None:
     ret = [(ZTau(d, 0), 2)]
   else:
@@ -137,18 +129,15 @@ def unit_dlog(u: ZTau) -> Tuple[int, int]:
   elif a == 0 and b == -1:
     return (-s, 1)
   mu = a * b
-  print("MU IS: ", mu, a, b)
   while abs(mu) > 1:
-    print(f"A: {a}, B : {b}")
     if mu > 1:
-      a, b = b - a, a
+      a, b = b, a - b
       k = k - 1
     elif mu < -1:
-      a, b = a + b, a
+      a, b = a + b, a  # supposed τ^-1 (a + btau) * (1 + tau) = (a + btau) + (a tau + b tau^2) = (a + btau + a tau + (1 - tau) b) = a + b + atau
       k = k + 1
     mu = a * b
   assert abs(mu) == 1, "Failed to reduce unit to base units"
-  print("MU IS: ", mu)
   match (a, b):
     case (1, 0):  # 1
       pass
@@ -159,14 +148,14 @@ def unit_dlog(u: ZTau) -> Tuple[int, int]:
     case (0, -1):  # -τ
       s *= -1
       k += 1
-    case (1, 1):  # τ + 1 = τ^-1
+    case (1, 1):  # 1 + tau = tau^-1
       k -= 1
-    case (-1, -1):  # −(τ + 1) = −τ^-1
+    case (-1, -1):  # -1 - tau = −τ^-1
       s *= -1
       k -= 1
-    case (1, -1):  # τ - 1 = τ^2
+    case (1, -1):  # 1 - tau = τ^2
       k += 2
-    case (-1, 1):  # −(τ - 1) = −τ^(2)
+    case (-1, 1):  # -1 + tau = −τ^(2)
       s *= -1
       k += 2
     case _:
@@ -262,7 +251,7 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
     m: int = fl[i][1]
     x = x * (xii ** (m // 2))
     if m % 2 == 1:
-      if xii == 5:
+      if xii == ZTau(5,0):
         x = x * (ZTau(1, 2))
       else:
         if xii == ZTau(2, -1):
@@ -271,18 +260,26 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
           M: Tuple[int, int] = splitting_root(xii)
 
           y: ZOmega = gcd(xii.to_cycl(), ZOmega.from_int(M[0]) - (ZOmega.Omega() + ZOmega.Omega_(4)))  # here, we have to cast up for representing sqrt(tau - 2), which is not in ZTau
-          print(type(xii))
           u = xii // N_i(y)
           s, m = unit_dlog(u)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
           x = x * (ZOmega.Tau() ** (m // 2)) * y
   return x
 
-
 def epsilon_region(r: float, theta: float):
   pass
 
 
 if __name__ == "__main__":
-  x = ZTau.Tau()**5
-  print(unit_dlog(x))
+  test = ZTau(15,-8)
+  print("SND: ", ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega()**4))
+  cand = ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega()**4)
+  y = gcd(test.to_cycl(), cand)
+  dm = divmod(test.to_cycl(), cand)
+  q,r = dm
+  assert  cand * q + r == test.to_cycl()
+  print("DivMod: ", dm)
+
+  print(test.to_cycl().automorphism())
+  print("Norm of this: ", N_i(y))
+  print(unit_dlog(ZTau(5,3)))

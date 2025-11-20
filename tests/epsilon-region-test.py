@@ -232,13 +232,8 @@ def test_point_on_circle(theta, epsilon, r):
 
 # Try it
 mpmath.mp.dps = 400
-theta = mpmath.pi / 100
-epsilon = 1e-70
-r = 1
-
-print(test_point_on_circle(theta, epsilon, r))
 
 theta = mpmath.pi / 10
-epsilon = 1e-10
+epsilon = 1e-21
 r = 1
 check_samples_in_parallelogram(theta, epsilon, r)

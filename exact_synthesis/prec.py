@@ -64,7 +64,7 @@ def random_sample(theta, epsilon, r) -> ZOmega:
   yy = approx_real(y_prime, m)
 
   y_approx = (yy.evaluate()) * mpmath.sqrt(2 - tau)
-  x = xc - (y - ymin) * sin_theta/cos_theta
+  x = xc - (y_approx - ymin) * sin_theta/cos_theta
 
   xx = approx_real(x, m)
 

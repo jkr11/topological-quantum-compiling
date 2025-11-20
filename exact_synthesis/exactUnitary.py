@@ -20,15 +20,15 @@ class ExactUnitary:
       raise ValueError(f"Invalid exact unitary: |u|² + τ|v|² ≠ 1, was {left.evaluate()} != 1 and as ZTau: {left}")
 
   @classmethod
-  def T(self) -> "ExactUnitary":
+  def T(cls) -> "ExactUnitary":
     return ExactUnitary(ZOmega.One(), ZOmega.Zero(), 6)
 
   @classmethod
-  def F(self) -> "ExactUnitary":
+  def F(cls) -> "ExactUnitary":
     return ExactUnitary(ZOmega.Tau(), ZOmega.One(), 0)
 
   @classmethod
-  def I(self) -> "ExactUnitary":
+  def I(cls) -> "ExactUnitary":
     return ExactUnitary(ZOmega.One(), ZOmega.Zero(), 5)
 
   def __mul__(self, other) -> "ExactUnitary":
@@ -43,7 +43,7 @@ class ExactUnitary:
     u3 = self.u * other.u + self.v.conjugate() * other.v * ZOmega.Tau() * ZOmega.Omega_(self.k)
     v3 = self.v * other.u - self.u.conjugate() * other.v * ZOmega.Omega_(self.k)
     k = (other.k + self.k) % 10
-    return ExactUnitary(u3, v3, k + 5 % 10)
+    return ExactUnitary(u3, v3, (k + 5) % 10)
 
   def __matmul__(self, other) -> "ExactUnitary":
     if not isinstance(other, ExactUnitary):
@@ -61,7 +61,7 @@ class ExactUnitary:
   def __hash__(self):
     return hash((self.u, self.v, self.k))
 
-  def to_numpy(self, threshold: float = None) -> np.ndarray:
+  def to_numpy(self, threshold: float|None = None) -> np.ndarray:
     matrix = np.matrix(self.to_matrix.tolist(), dtype=np.complex256).reshape(2, 2)
     if threshold:
       matrix[np.abs(matrix) < threshold] = 0
@@ -115,13 +115,13 @@ class ExactUnitary:
     return ExactUnitary(self.u, self.v * ZOmega.Omega_(-self.k % 10), self.k)
 
   @classmethod
-  def from_gates_string(self, gates: List[str]):
-    unitary = self.I()
+  def from_gates_string(cls, gates: List[str]):
+    unitary = cls.I()
     for g in reversed(gates):
       if g == "T":
-        unitary = unitary * self.T()
+        unitary = unitary * cls.T()
       elif g == "F":
-        unitary = unitary * self.F()
+        unitary = unitary * cls.F()
       elif g == "W":
         unitary = unitary.omega_mul(1)
     return unitary
@@ -130,17 +130,17 @@ class ExactUnitary:
     return f"U{str(self.u), str(self.v), self.k}"
 
   @classmethod
-  def sigma1(self) -> "ExactUnitary":
+  def sigma1(cls) -> "ExactUnitary":
     """
     Returns sigma1 as an exact unitary from the <F,T> circuit (wI)^6 T^7
     """
-    wI6 = self.I().omega_mul(6)
-    return wI6 @ (self.T() ** 7)
+    wI6 = cls.I().omega_mul(6)
+    return wI6 @ (cls.T() ** 7)
 
   @classmethod
-  def sigma2(self) -> "ExactUnitary":
+  def sigma2(cls) -> "ExactUnitary":
     """
     Returns sigma2 as an exact unitary (wI)^6 F T^7 F
     """
-    wI6 = self.I().omega_mul(6)
-    return wI6 @ self.F() @ (self.T() ** 7) @ self.F()
+    wI6 = cls.I().omega_mul(6)
+    return wI6 @ cls.F() @ (cls.T() ** 7) @ cls.F()

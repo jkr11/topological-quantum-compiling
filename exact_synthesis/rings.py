@@ -90,8 +90,8 @@ class ZOmega:
     return cls.Omega() ** k
 
   def conjugate(self):
-    c0, c1, c2, c3 = self.coeffs()
-    return ZOmega(c0 + c1, -c1, c1 - c3, -c1 - c2)
+    a, b, c, d = self.coeffs()
+    return ZOmega(a + b, -b, b - d, -b - c)
 
   def automorphism(self):
     c0, c1, c2, c3 = self.coeffs()
@@ -104,7 +104,7 @@ class ZOmega:
       return self.automorphism()
     elif k == 7:
       c0, c1, c2, c3 = self.coeffs()
-      return ZOmega(c0, c3, -c1, 0) + self.from_omega_4(c2)
+      return ZOmega(c0 - c2, c3 + c2, -c1 - c2, c2)
     elif k == 9:
       return self.automorphism().automorphism()
     else:
@@ -124,19 +124,17 @@ class ZOmega:
     return self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
 
   def __divmod__(self, other) -> tuple["ZOmega", "ZOmega"]:
-    def rounddiv(x: int, y: int):
+    def rounddiv(x: int, y: int) -> int:
       return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
 
     if isinstance(other, int):
       other = self.from_int(other)
-    elif isinstance(other, self.__class__):
+    if isinstance(other, self.__class__):
       p = self * other.galois_automorphism_product()
-
       k = N(other)
+      q_coeffs = [rounddiv(c, k) for c in p.coeffs()] 
 
-      q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
       q = self.__class__(*q_coeffs)
-
       r = self - other * q
       return q, r
     else:
@@ -156,15 +154,15 @@ class ZOmega:
   def norm_i(self):
     return self * self.conjugate()
 
-  def integer_remainder_mod_one_plus_omega(self):
+  def integer_remainder_mod_one_plus_omega(self) -> int:
     a, b, c, d = self.coeffs()
     return a - b + c - d
 
   @classmethod
-  def from_omega_4(self, k: int):
-    return self(-k, k, -k, k)
+  def from_omega_4(cls, k: int) -> "ZOmega":
+    return ZOmega(-k, k, -k, k)
 
-  def is_unit(self):
+  def is_unit(self) -> bool:
     return self.galois_norm() == 1
 
   def mod_one_plus_omega(self) -> int:
@@ -198,7 +196,7 @@ class ZOmega:
   def __eq__(self, other):
     return self.coeffs() == other.coeffs()
 
-  def __add__(self, other) -> "ZOmega":
+  def __add__(self, other : "ZOmega") -> "ZOmega":
     if isinstance(other, ZOmega):
       return ZOmega(
         self.coeffs()[0] + other.coeffs()[0],
@@ -215,11 +213,9 @@ class ZOmega:
   def __neg__(self):
     return self.__class__(-self.c0, -self.c1, -self.c2, -self.c3)
 
-  def __sub__(self, other):
-    if isinstance(other, self.__class__):
-      return self + (-other)
-    elif isinstance(other, int):
-      return self + (-self.__class__.from_int(other))
+  def __sub__(self, other : "ZOmega") -> "ZOmega":
+    return self + (-other)
+    
 
   def __str__(self):
     labels = ["", "ω", "ω²", "ω³"]
@@ -234,7 +230,7 @@ class ZOmega:
 
 class ZTau:
   """
-  Real subring of ZOmega, also integers adjoint (\sqrt(5) - 1) / 2
+  Real subring of ZOmega, also integers adjoint (sqrt(5) - 1) / 2
   """
 
   def __init__(self, a: int, b: int):
@@ -261,13 +257,15 @@ class ZTau:
     return ZTau(self.a - self.b, -self.b)
 
   def norm(self) -> int:
-    return self * self.automorphism()
+    x = self * self.automorphism()
+    assert x.b == 0
+    return x.a
 
   def conjugate(self):
     return self.automorphism().automorphism()
 
   @classmethod
-  def from_int(self, n: int):
+  def from_int(cls, n: int):
     return ZTau(n, 0)
 
   def to_cycl(self) -> ZOmega:
@@ -280,11 +278,8 @@ class ZTau:
       raise NotImplementedError
 
   def div_by_two_minus_tau(self):
-    """Divide by (2-τ) using the fact that (2-τ)(3+τ) = 5"""
-    # First multiply by (3+τ)
     num = self * ZTau(2, -1).automorphism()  # multiply by (2+τ)
 
-    # Check if result is divisible by 5
     if num.a % 5 != 0 or num.b % 5 != 0:
       raise ValueError(f"{self} is not divisible by (2-τ)")
 
@@ -301,7 +296,6 @@ class ZTau:
     return self.gen_div(other)
 
   def __rmul__(self, other):
-    """Right multiplication - allows integer * RealCyclotomic10"""
     if isinstance(other, int):
       return ZTau(self.a * other, self.b * other)
     return self.__mul__(other)
@@ -343,22 +337,20 @@ class ZTau:
     return self.a == other.a and self.b == other.b
 
   def inv(self):
-    n = N_tau(self)
-    ns = self.conjugate()
-    if ns.a % n != 0 or ns.b % n != 0:
-      raise ValueError(f"{self} is not invertible in Z[τ]")
-    return ZTau(ns.a // n, ns.b // n)
+    # TODO: fix with normal arithmetic
+    inv = self.to_cycl().inv()
+    return inv.to_subring()
 
   @classmethod
-  def One(self):
+  def One(cls):
     return ZTau(1, 0)
 
   @classmethod
-  def Tau(self):
+  def Tau(cls):
     return ZTau(0, 1)
 
   @classmethod
-  def Phi(self) -> "ZTau":
+  def Phi(cls) -> "ZTau":
     return ZTau(1, 1)
 
   def __repr__(self) -> str:
