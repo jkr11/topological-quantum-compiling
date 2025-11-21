@@ -82,6 +82,10 @@ class ZOmega:
     return ZOmega(0, 0, 1, -1)
 
   @classmethod
+  def Phi(cls):
+    return ZOmega(1, 0, 1, -1)
+
+  @classmethod
   def Omega(cls):
     return ZOmega(0, 1, 0, 0)
 
@@ -247,6 +251,9 @@ class ZTau:
     tau_part = a * d + b * c - (b * d)
 
     return ZTau(real_part, tau_part)
+
+  def to_tuple(self) -> Tuple[int, int]:
+    return self.a, self.b
 
   def evaluate(self):
     tau = mp.mpf((mp.sqrt(5) - 1) / 2)

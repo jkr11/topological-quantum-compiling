@@ -4,7 +4,7 @@ import mpmath
 from numpy.testing import assert_almost_equal
 
 from exact_synthesis.rings import ZOmega, ZTau
-from exact_synthesis.numberTheory import solve_norm_equation, unit_dlog, N_i, easy_factor
+from exact_synthesis.numberTheory import solve_norm_equation, unit_dlog, N_i, easy_factor, solve_norm_equation_2
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
 
@@ -56,19 +56,22 @@ class TestNormEquation(unittest.TestCase):
     x = solve_norm_equation(xi)
     self.assertEqual(N_i(x), xi)
 
+  def test_thesis_example(self):
+    xi = ZTau(760, -780)
+    x = solve_norm_equation_2(xi)
+    self.assertEqual(N_i(x), xi)
+
 
 class TestUnitDlog(unittest.TestCase):
   def test_unit_dlog_positive(self):
     for i in range(1, 20):
       x = ZTau.Tau() ** i
-      print(x)
       xx = unit_dlog(x)
       self.assertEqual(xx, (1, i))
 
   def test_unit_dlog_negative(self):
     for i in range(1, 20):
       x = ZTau.Tau() ** (-i)
-      print("Negative power:", x)
       xx = unit_dlog(x)
       self.assertEqual(xx, (1, -i))
 

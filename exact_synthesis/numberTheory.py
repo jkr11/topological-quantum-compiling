@@ -233,6 +233,39 @@ def gcd(a: ZOmega, b: ZOmega) -> ZOmega:
     a, b = b, r
   return a
 
+def extended_euclidean(b : int, p : int) -> Tuple[int, int]:
+    if p == 0:
+        return 1, 0
+    else:
+        x1, y1 = extended_euclidean(p, b % p)
+        x = y1
+        y = x1 - (b // p) * y1
+        return x, y
+
+
+def divides(a : ZTau, b : ZTau) -> bool:
+  return N_tau(a) % N_tau(b) == 0
+
+def tau_to_int(xi : ZTau) -> int:
+  p = N_tau(xi)
+  a, b = xi.to_tuple()
+  u, v = extended_euclidean(b, p)
+  return -1 * a * u % p
+
+def solve_norm_equation_2(xi : ZTau) -> ZOmega:
+  n = 0
+
+  while divides(ZTau(2,-1),xi):
+    xi = xi.div_by_two_minus_tau()
+    n = n + 1
+
+  p = N_tau(xi)
+  t = (tau_to_int(xi) - 2) % p
+  M = tonelli_shanks(t,p)
+  x_r = gcd(xi.to_cycl(), ZOmega.from_int(M[0]) - (ZOmega.Omega() + ZOmega.Omega()**4))
+  u = xi // N_i(x_r)
+  s,m = unit_dlog(u)
+  return ZOmega.Tau() ** (m // 2) * (ZOmega.Omega() + ZOmega.Omega()**4)**n * x_r
 
 def solve_norm_equation(xi: ZTau) -> ZOmega:
   """

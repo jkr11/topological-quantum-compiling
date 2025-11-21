@@ -141,7 +141,7 @@ def exact_synthesize(U: ExactUnitary) -> List[Gate]:
   while g > 2:
     min_complexity = math.inf
     J = 0
-    for j in range(11):
+    for j in range(1, 11):
       candidate = FT_power_table[j] * Ur
       gg = candidate.gauss_complexity()
       if gg < min_complexity:
@@ -332,6 +332,11 @@ def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
 def d_z_(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
   return mpmath.sqrt(1 - mpmath.fabs(mpmath.re(U.u.evaluate() * mpmath.exp(1j * phi / 2))))
+
+def _d_z(phi, u : ZOmega):
+  phi = mpmath.mpf(phi)
+  return mpmath.sqrt(1 - mpmath.fabs(mpmath.re(u.evaluate() * mpmath.exp(1j * phi / 2))))
+
 
 def d_z(phi, U : ExactUnitary):
     phi = mpmath.mpf(phi)
