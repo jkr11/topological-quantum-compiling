@@ -1,9 +1,19 @@
 from exact_synthesis.rings import ZOmega, ZTau
 import mpmath
 import random
+from fractions import Fraction
+
+def exact_fibonacci(n):
+  if n <= 0:
+    return 0
+  a, b = 0, 1
+  for _ in range(n):
+    a, b = b, a + b
+  return a
 
 
 def approx_real(x, n) -> ZTau:
+  assert n >= 1
   TAU = (mpmath.sqrt(5) - 1) / 2
   PHI = TAU + 1
   x = mpmath.mpf(x)
@@ -11,17 +21,20 @@ def approx_real(x, n) -> ZTau:
   phi = mpmath.mpf(PHI)
   PREC = tau ** (n - 1) * (1 - tau**n)
 
-  o = int(mpmath.fibonacci(n - 1))
-  p = int(mpmath.fibonacci(n))
-  q = int(mpmath.fibonacci(n + 1))
+  o = exact_fibonacci(n - 1)
+  p = exact_fibonacci(n)
+  q = exact_fibonacci(n + 1)
+
   u = ((-1) ** (n + 1)) * p
   v = ((-1) ** n) * o
 
   assert u * p + v * q == 1, f"Failed: u * p + v * q = {u * p + v * q}, expected 1"
 
-  c = mpmath.nint(x * q)
-  cuq = c * u / q
-  nint_cuq = int(mpmath.nint(cuq))
+  c = int(mpmath.nint(x * q))
+  cu = c * u
+  #cuq = c * u / q
+  #nint_cuq = int(mpmath.nint(cuq))
+  nint_cuq = round(Fraction(cu, q))
   a = c * v + p * nint_cuq
   b = c * u - q * nint_cuq
 
@@ -31,6 +44,7 @@ def approx_real(x, n) -> ZTau:
   phi_pow_n = phi**n
   assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
   return ZTau(int(a), int(b))
+  
 
 
 def random_sample(theta, epsilon, r) -> ZOmega:
@@ -39,7 +53,7 @@ def random_sample(theta, epsilon, r) -> ZOmega:
   tau = mpmath.mpf(TAU)
   phi = mpmath.mpf(PHI)
   theta = mpmath.mpf(theta)
-  assert 0 <= theta < mpmath.pi / 5, f"was {theta} instead"
+  assert 0 <= theta <= mpmath.pi / 5, f"was {theta} instead"
   epsilon = mpmath.mpf(epsilon)
   r = mpmath.mpf(r)
 
@@ -73,62 +87,3 @@ def random_sample(theta, epsilon, r) -> ZOmega:
   result = part1.to_cycl() + part2
 
   return result
-
-
-if __name__ == "__main__":
-  from exact_synthesis.synthesis import _d_z
-
-  mpmath.mp.dps = 100
-  phi = 4 * mpmath.pi / 100
-  eps = 1e-10
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  PHI = TAU + 1
-  C = mpmath.sqrt(PHI / 4)
-
-  theta = None
-  k_final = None
-
-  pi_over_5 = mpmath.pi / 5
-
-  for k in range(-10,11):
-    theta_candidate = -phi / 2 - mpmath.pi * (k / 5)
-    if 0 <= theta_candidate <= pi_over_5:
-      theta = theta_candidate
-      k_final = k
-      break
-  assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
-
-
-  def find_k(phi):
-    phi = mpmath.mpf(phi)
-    pi = mpmath.pi
-    # compute range
-    k_min = mpmath.ceil(-1 - 5*phi/(2*pi))
-    k_max = mpmath.floor(- 5*phi/(2*pi))
-    
-    # choose any integer k in this range
-    # for example, pick the smallest one
-    k = int(k_min)
-    
-    # compute theta
-    theta = -phi/2 - pi*k/5
-    return k, theta
-  
-  print(find_k(phi))
-
-  m = int(mpmath.ceil(mpmath.log(C * eps, TAU)) + 1)
-  k,theta = find_k(phi)
-  u0 = random_sample(theta, eps, 1)
-  assert abs(u0.evaluate()) <= PHI**m
-  dists = []
-  for k in range(-10, 11):
-    for m in range(200):
-      u = (ZOmega.Omega() ** k) * (ZOmega.Tau() ** m) * u0
-      dist = _d_z(phi, u)
-      try:
-        if dist < 1:
-          dists.append((dist, (k,m)) )
-      except Exception as e:
-        pass
-  print(min(dists, key = lambda e : e[0]))
-  # print(dist < eps)
