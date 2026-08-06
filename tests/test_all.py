@@ -1,25 +1,40 @@
+from exact_synthesis.prec import approx_real
 import unittest
+import pytest
 import numpy as np
 import mpmath
 from numpy.testing import assert_almost_equal
 
 from exact_synthesis.rings import ZOmega, ZTau
-from exact_synthesis.numberTheory import solve_norm_equation, unit_dlog, N_i, easy_factor, solve_norm_equation_2
+from exact_synthesis.numberTheory import solve_norm_equation, unit_dlog, N_i, easy_factor, easy_solvable, solve_norm_equation_alt
 from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
 
 
 class TestRandomSample(unittest.TestCase):
   def test_random_sample(self):
-    eps = 1 / 100
-    TAU = (mpmath.sqrt(5) - 1) / 2
-    PHI = TAU + 1
-    tau = mpmath.mpf(TAU)
-    phi = mpmath.mpf(PHI)
-    C = mpmath.sqrt(phi / 4)
-    m = mpmath.ceil(mpmath.log(C * eps, tau)) + 1
-    PREC = tau ** (m - 1) * (1 - tau**m)
-    self.assertTrue(PREC < (PHI**m * eps**2 / 4))  # This is lemma 18
+    with mpmath.workdps(300):  # Look up best practices for testing dps dependent math
+      eps = 1e-100
+      TAU = (mpmath.sqrt(5) - 1) / 2
+      PHI = TAU + 1
+      tau = mpmath.mpf(TAU)
+      phi = mpmath.mpf(PHI)
+      C = mpmath.sqrt(phi / 4)
+      m = mpmath.ceil(mpmath.log(C * eps, tau)) + 1
+      PREC = tau ** (m - 1) * (1 - tau**m)
+      self.assertTrue(PREC < (PHI**m * eps**2 / 4))  # This is lemma 18
+
+
+class TestApproxReal(unittest.TestCase):
+  def test_prec(self):
+    with mpmath.workdps(300):
+      TAU = (mpmath.sqrt(5) - 1) / 2
+      tau = mpmath.mpf(TAU)
+      for n in [200, 400, 600, 700]:
+        PREC = tau ** (n - 1) * (1 - tau**n)
+        test_x = mpmath.rand()
+        app = approx_real(test_x, n)
+        assert abs(app.evaluate() - test_x < PREC)
 
 
 class TestGaussComplexity(unittest.TestCase):
@@ -50,6 +65,35 @@ class TestEasyFactor(unittest.TestCase):
     self.assertEqual(EF, solution)
 
 
+import random
+
+
+def generate_valid_samples(count=20):
+  import math
+
+  samples = []
+  while len(samples) < count:
+    xi = ZTau(random.randint(-1000, 1000), random.randint(-1000, 1000))
+
+    if xi.evaluate() >= 0 and xi.automorphism().evaluate() >= 0:
+      if easy_solvable(easy_factor(xi)):
+        if math.gcd(xi.a, xi.b) == 1:
+          samples.append(xi)
+  return samples
+
+
+@pytest.mark.parametrize("xi", generate_valid_samples(200))
+def test_norm_equation_random(xi):
+  x = solve_norm_equation(xi)
+  assert N_i(x) == xi
+
+
+@pytest.mark.parametrize("xi", generate_valid_samples(200))
+def test_norm_equation_alt_random(xi):
+  x = solve_norm_equation_alt(xi)
+  assert N_i(x) == xi
+
+
 class TestNormEquation(unittest.TestCase):
   def test_paper_example(self):
     xi = ZTau(760, -780)
@@ -58,7 +102,7 @@ class TestNormEquation(unittest.TestCase):
 
   def test_thesis_example(self):
     xi = ZTau(760, -780)
-    x = solve_norm_equation_2(xi)
+    x = solve_norm_equation(xi)
     self.assertEqual(N_i(x), xi)
 
 

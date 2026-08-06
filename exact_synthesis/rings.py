@@ -7,7 +7,6 @@ class ZOmega:
   """
   Ring of Cyclotomic integers of order 10
   """
-
   def __init__(self, c0: int, c1: int, c2: int, c3: int) -> None:
     self.c0: int = c0
     self.c1: int = c1
@@ -48,7 +47,7 @@ class ZOmega:
   def __rmul__(self, other):
     return self.__mul__(other)
 
-  def __pow__(self, exponent: int):
+  def __pow__(self, exponent: int) -> "ZOmega":
     if not isinstance(exponent, int):
       return NotImplemented
     if exponent == 0:
@@ -70,7 +69,7 @@ class ZOmega:
     return cls(other, 0, 0, 0)
 
   @classmethod
-  def One(cls):
+  def One(cls) -> "ZOmega":
     return cls.from_int(1)
 
   @classmethod
@@ -114,7 +113,7 @@ class ZOmega:
     else:
       raise NotImplementedError(f"galois_automorphism(k : int) is only available for k = 1,3,7,9 but was {k}.")
 
-  def inv(self):
+  def inv(self) -> "ZOmega":
     conjs = self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
     a, b, c, d = conjs.coeffs()
     N = self.galois_norm()
@@ -176,13 +175,13 @@ class ZOmega:
     """
     c0, c1, c2, c3 = self.coeffs()
     result = c0 - c1 + c2 - c3
-    return result % 5  # modulo N(1 + ω)
+    return ((result + 2) % 5) - 2  # modulo N(1 + ω)
 
   def divides_by_one_plus_omega(self) -> bool:
     return self.galois_norm() % 5 == 0 and self.mod_one_plus_omega() == 0
 
   def evaluate(self):
-    omega = mpmath.exp(2 * mpmath.pi * 1j / 10)
+    omega = mpmath.exp(mpmath.mpc(0, mpmath.pi) / 5)
     return self.c0 + self.c1 * omega + self.c2 * omega**2 + self.c3 * omega**3
 
   def to_subring(self):
@@ -241,7 +240,7 @@ class ZTau:
     self.a: int = a
     self.b: int = b
 
-  def __mul__(self, other):
+  def __mul__(self, other) -> "ZTau":
     if not isinstance(other, ZTau):
       other = ZTau.from_int(other)
     a, b = self.a, self.b
@@ -307,7 +306,7 @@ class ZTau:
       return ZTau(self.a * other, self.b * other)
     return self.__mul__(other)
 
-  def __pow__(self, exponent: int):
+  def __pow__(self, exponent: int) -> "ZTau":
     if not isinstance(exponent, int):
       raise ValueError(f"exponent must be integer, was {type(exponent)}")
     if exponent == 0:
@@ -335,7 +334,7 @@ class ZTau:
     else:
       raise ValueError(f"Can only add ZTau with ZTau but was {type(other)}")
 
-  def __sub__(self, other):
+  def __sub__(self, other) -> "ZTau":
     return self.__add__(-other)
 
   def __eq__(self, other):
@@ -389,7 +388,7 @@ class ZTau:
     p = a_cyclo * b_cyclo.galois_automorphism_product()
     k = N(other.to_cycl())  # TODO: check why this is different when casting
 
-    q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
+    q_coeffs: list[int] = [rounddiv(c, k) for c in p.coeffs()]
     q_cyclo = ZOmega(*q_coeffs)
 
     q = q_cyclo.to_subring()
@@ -397,12 +396,12 @@ class ZTau:
     r = self - other * q
     return q, r
 
-  def __floordiv__(self, other):
+  def __floordiv__(self, other : "ZTau") -> "ZTau":
     q, _ = divmod(self, other)
     return q
 
-  def __mod__(self, other):
-    _, r = divmod(self, other)
+  def __mod__(self, other:"ZTau ") -> "ZTau ":
+    _, r = self.__divmod__(other)
     return r
 
 

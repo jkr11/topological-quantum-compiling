@@ -1,6 +1,6 @@
 import math
 import random
-from exact_synthesis.rings import ZOmega, ZTau, N_tau, N_i
+from exact_synthesis.rings import ZOmega, ZTau, N_tau, N_i, N
 from typing import List, Tuple, Union
 
 
@@ -65,6 +65,7 @@ def miller_rabin(n: int, k: int = 7) -> bool:
     else:
       return False
   return True
+
 
 def easy_solvable(fl: List[Tuple[ZTau, int]]) -> bool:
   for i in range(0, len(fl)):
@@ -233,39 +234,27 @@ def gcd(a: ZOmega, b: ZOmega) -> ZOmega:
     a, b = b, r
   return a
 
-def extended_euclidean(b : int, p : int) -> Tuple[int, int]:
-    if p == 0:
-        return 1, 0
-    else:
-        x1, y1 = extended_euclidean(p, b % p)
-        x = y1
-        y = x1 - (b // p) * y1
-        return x, y
+
+def extended_euclidean(b: int, p: int) -> Tuple[int, int]:
+  if p == 0:
+    return 1, 0
+  else:
+    x1, y1 = extended_euclidean(p, b % p)
+    x = y1
+    y = x1 - (b // p) * y1
+    return x, y
 
 
-def divides(a : ZTau, b : ZTau) -> bool:
+def divides(a: ZTau, b: ZTau) -> bool:
   return N_tau(a) % N_tau(b) == 0
 
-def tau_to_int(xi : ZTau) -> int:
+
+def tau_to_int(xi: ZTau) -> int:
   p = N_tau(xi)
   a, b = xi.to_tuple()
   u, v = extended_euclidean(b, p)
   return -1 * a * u % p
 
-def solve_norm_equation_2(xi : ZTau) -> ZOmega:
-  n = 0
-
-  while divides(ZTau(2,-1),xi):
-    xi = xi.div_by_two_minus_tau()
-    n = n + 1
-
-  p = N_tau(xi)
-  t = (tau_to_int(xi) - 2) % p
-  M = tonelli_shanks(t,p)
-  x_r = gcd(xi.to_cycl(), ZOmega.from_int(M[0]) - (ZOmega.Omega() + ZOmega.Omega()**4))
-  u = xi // N_i(x_r)
-  s,m = unit_dlog(u)
-  return ZOmega.Tau() ** (m // 2) * (ZOmega.Omega() + ZOmega.Omega()**4)**n * x_r
 
 def solve_norm_equation(xi: ZTau) -> ZOmega:
   """
@@ -284,7 +273,7 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
     m: int = fl[i][1]
     x = x * (xii ** (m // 2))
     if m % 2 == 1:
-      if xii == ZTau(5,0):
+      if xii == ZTau(5, 0):
         x = x * (ZTau(1, 2))
       else:
         if xii == ZTau(2, -1):
@@ -299,20 +288,50 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
           x = x * (ZOmega.Tau() ** (m // 2)) * y
   return x
 
+
+def solve_norm_equation_alt(xi: ZTau) -> ZOmega:
+  if not easy_solvable(easy_factor(xi)):
+    raise ValueError(f"{xi} is not EASY-SOLVABLE.")
+
+  n = 0
+
+  two_minus_tau = ZTau(2, -1)
+  while xi % two_minus_tau == 0:
+    xi = xi // two_minus_tau
+    n += 1
+
+  p = N_tau(xi)
+
+  t = (tau_to_int(xi) - 2) % p
+
+  M, _ = tonelli_shanks(t, p)
+
+  sqrt_tau_minus_two = ZOmega.Omega() + ZOmega.Omega_(4)
+
+  xr = gcd(xi.to_cycl(), ZOmega.from_int(M) - sqrt_tau_minus_two)
+
+  u = xi // N_i(xr)
+
+  s, m = unit_dlog(u)
+  assert s == 1 and m % 2 == 0, f"Unit DLOG failed: s={s}, m={m}"
+
+  return (ZOmega.Tau() ** (m // 2)) * (sqrt_tau_minus_two**n) * xr
+
+
 def epsilon_region(r: float, theta: float):
   pass
 
 
 if __name__ == "__main__":
-  test = ZTau(15,-8)
-  print("SND: ", ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega()**4))
-  cand = ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega()**4)
+  test = ZTau(15, -8)
+  print("SND: ", ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega() ** 4))
+  cand = ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega() ** 4)
   y = gcd(test.to_cycl(), cand)
   dm = divmod(test.to_cycl(), cand)
-  q,r = dm
-  assert  cand * q + r == test.to_cycl()
+  q, r = dm
+  assert cand * q + r == test.to_cycl()
   print("DivMod: ", dm)
 
   print(test.to_cycl().automorphism())
   print("Norm of this: ", N_i(y))
-  print(unit_dlog(ZTau(5,3)))
+  print(unit_dlog(ZTau(5, 3)))

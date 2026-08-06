@@ -1,89 +1,123 @@
-from exact_synthesis.rings import ZOmega, ZTau
-import mpmath
 import random
-from fractions import Fraction
+from mpmath import mp
 
-def exact_fibonacci(n):
-  if n <= 0:
-    return 0
-  a, b = 0, 1
-  for _ in range(n):
-    a, b = b, a + b
-  return a
+from exact_synthesis.rings import ZOmega, ZTau
+
+SQRT_TAU_MINUS_2 = ZOmega(-1, 2, -1, 1)
 
 
-def approx_real(x, n) -> ZTau:
-  assert n >= 1
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  PHI = TAU + 1
-  x = mpmath.mpf(x)
-  tau = mpmath.mpf(TAU)
-  phi = mpmath.mpf(PHI)
-  PREC = tau ** (n - 1) * (1 - tau**n)
+def _fibonacci(n: int) -> int:
+  if n >= 0:
+    a, b = 0, 1
+    for _ in range(n):
+      a, b = b, a + b
+    return a
+  k = -n
+  fk = _fibonacci(k)
+  return fk if k % 2 == 1 else -fk
 
-  o = exact_fibonacci(n - 1)
-  p = exact_fibonacci(n)
-  q = exact_fibonacci(n + 1)
 
-  u = ((-1) ** (n + 1)) * p
-  v = ((-1) ** n) * o
+def approx_real(x, n: int) -> ZTau:
+  x = mp.mpf(x)
 
-  assert u * p + v * q == 1, f"Failed: u * p + v * q = {u * p + v * q}, expected 1"
+  p = _fibonacci(n)
+  q = _fibonacci(n + 1)
+  u = (-1) ** (n + 1) * _fibonacci(n)
+  v = (-1) ** n * _fibonacci(n - 1)
+  assert u * p + v * q == 1, "Invariant invalid"
 
-  c = int(mpmath.nint(x * q))
+  if q == 0:
+    raise ValueError(f"approx_real: F_(n+1) is zero for n={n}; choose n >= 0.")
+
+  c = int(mp.nint(x * q))
   cu = c * u
-  #cuq = c * u / q
-  #nint_cuq = int(mpmath.nint(cuq))
-  nint_cuq = round(Fraction(cu, q))
-  a = c * v + p * nint_cuq
-  b = c * u - q * nint_cuq
+  floor_cu_over_q = cu // q
 
-  approx = a + b * tau
-  abs_diff = mpmath.fabs(x - approx)
-  abs_b = mpmath.fabs(b)
-  phi_pow_n = phi**n
-  assert (abs_diff <= PREC) and (abs_b <= phi_pow_n), f"Failed: abs(x - approx)={abs_diff} (PREC={PREC}), abs(b)={abs_b} (PHI^n={phi_pow_n})"
-  return ZTau(int(a), int(b))
-  
+  a = c * v + p * floor_cu_over_q
+  b = c * u - q * floor_cu_over_q
+
+  return ZTau(a, b)
 
 
-def random_sample(theta, epsilon, r) -> ZOmega:
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  PHI = TAU + 1
-  tau = mpmath.mpf(TAU)
-  phi = mpmath.mpf(PHI)
-  theta = mpmath.mpf(theta)
-  assert 0 <= theta <= mpmath.pi / 5, f"was {theta} instead"
-  epsilon = mpmath.mpf(epsilon)
-  r = mpmath.mpf(r)
+def random_sample(theta, epsilon, r=1) -> ZOmega:
+  theta = mp.mpf(theta)
+  epsilon = mp.mpf(epsilon)
+  r = mp.mpf(r)
 
-  C = mpmath.sqrt(phi / (4 * r))
-  m = int(mpmath.ceil(mpmath.log(C * epsilon * r, tau))) + 1
-  N = int(mpmath.ceil(phi**m))
+  phi = (1 + mp.sqrt(5)) / 2
+  tau = phi - 1  # = 1/phi
 
-  sin_theta = mpmath.sin(theta)
-  cos_theta = mpmath.cos(theta)
-  sqrt_expr = mpmath.sqrt(4 - epsilon**2)
+  C = mp.sqrt(phi / (4 * r))
+  m = int(mp.ceil(mp.log(C * epsilon * r) / mp.log(tau))) + 1
+  N = int(mp.ceil(phi**m))
 
-  ymin = r * phi**m * (sin_theta - epsilon * (sqrt_expr * cos_theta + epsilon * sin_theta) / 2)
-  ymax = r * phi**m * (sin_theta + epsilon * (sqrt_expr * cos_theta - epsilon * sin_theta) / 2)
+  if N < 2:
+    raise ValueError(f"random_sample: N={N} leaves no valid range for j; epsilon={epsilon} is too large for r={r} (increase precision or shrink epsilon).")
 
-  xmax = r * phi**m * ((1 - epsilon**2 / 2) * cos_theta - epsilon * mpmath.sqrt(1 - epsilon**2 / 4) * sin_theta)
-  xc = xmax - (r * epsilon**2 * phi**m) / (4 * cos_theta)
+  sin_t, cos_t = mp.sin(theta), mp.cos(theta)
+  sqrt4_eps2 = mp.sqrt(4 - epsilon**2)
+
+  y_min = r * phi**m * (sin_t - epsilon * (sqrt4_eps2 * cos_t + epsilon * sin_t) / 2)
+  y_max = r * phi**m * (sin_t + epsilon * (sqrt4_eps2 * cos_t - epsilon * sin_t) / 2)
+  x_max = r * phi**m * ((1 - epsilon**2 / 2) * cos_t - epsilon * mp.sqrt(1 - epsilon**2 / 4) * sin_t)
+  x_c = x_max - r * epsilon**2 * phi**m / (4 * cos_t)
 
   j = random.randint(1, N - 1)
-  y = ymin + j * (ymax - ymin) / N
+  y = y_min + j * (y_max - y_min) / N
 
-  y_prime = y / mpmath.sqrt(2 - tau)
-  yy = approx_real(y_prime, m)
+  sqrt_2_minus_tau = mp.sqrt(2 - tau)
 
-  y_approx = (yy.evaluate()) * mpmath.sqrt(2 - tau)
-  x = xc - (y_approx - ymin) * sin_theta / cos_theta
+  ay_by = approx_real(y / sqrt_2_minus_tau, m)
+  a_y, b_y = ay_by.a, ay_by.b
 
-  xx = approx_real(x, m)
+  x = x_c - ((a_y + b_y * tau) * sqrt_2_minus_tau - y_min) * mp.tan(theta)
 
-  part1 = xx
-  part2 = yy.to_cycl() * (ZOmega.Omega() + ZOmega.Omega() ** 4)
-  result = part1.to_cycl() + part2
+  ax_bx = approx_real(x, m)
+  a_x, b_x = ax_bx.a, ax_bx.b
 
-  return result
+  real_part = ZTau(a_x, b_x).to_cycl()
+  imag_part = SQRT_TAU_MINUS_2 * ZTau(a_y, b_y).to_cycl()
+
+  return real_part + imag_part
+
+
+def _random_sample(theta, epsilon, r=1):
+  theta = mp.mpf(theta)
+  epsilon = mp.mpf(epsilon)
+  r = mp.mpf(r)
+
+  phi = (1 + mp.sqrt(5)) / 2
+  tau = phi - 1  # = 1/phi
+
+  C = mp.sqrt(phi / (4 * r))
+  m = int(mp.ceil(mp.log(C * epsilon * r) / mp.log(tau))) + 1
+  N = int(mp.ceil(phi**m))
+
+  if N < 2:
+    raise ValueError(f"random_sample: N={N} leaves no valid range for j; epsilon={epsilon} is too large for r={r} (increase precision or shrink epsilon).")
+
+  sin_t, cos_t = mp.sin(theta), mp.cos(theta)
+  sqrt4_eps2 = mp.sqrt(4 - epsilon**2)
+
+  y_min = r * phi**m * (sin_t - epsilon * (sqrt4_eps2 * cos_t + epsilon * sin_t) / 2)
+  y_max = r * phi**m * (sin_t + epsilon * (sqrt4_eps2 * cos_t - epsilon * sin_t) / 2)
+  x_max = r * phi**m * ((1 - epsilon**2 / 2) * cos_t - epsilon * mp.sqrt(1 - epsilon**2 / 4) * sin_t)
+  x_c = x_max - r * epsilon**2 * phi**m / (4 * cos_t)
+
+  j = random.randint(1, N - 1)
+  y = y_min + j * (y_max - y_min) / N
+
+  sqrt_2_minus_tau = mp.sqrt(2 - tau)
+
+  ay_by = approx_real(y / sqrt_2_minus_tau, m)
+  a_y, b_y = ay_by.a, ay_by.b
+
+  x = x_c - ((a_y + b_y * tau) * sqrt_2_minus_tau - y_min) * mp.tan(theta)
+
+  ax_bx = approx_real(x, m)
+  a_x, b_x = ax_bx.a, ax_bx.b
+
+  real_part = ZTau(a_x, b_x).to_cycl()
+  imag_part = SQRT_TAU_MINUS_2 * ZTau(a_y, b_y).to_cycl()
+
+  return real_part + imag_part, ay_by, y

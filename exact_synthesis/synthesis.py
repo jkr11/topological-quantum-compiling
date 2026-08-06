@@ -38,90 +38,6 @@ class Sigma2:
 
 Gate = Union[TGate, FGate, WIGate, Sigma1, Sigma2]
 
-
-def canonicalize_and_reduce_identities(gates: List[Gate]) -> List[Gate]:
-  t_accum = 0
-  w_accum = 0
-  result = []
-
-  i = 0
-  while i < len(gates):
-    gate = gates[i]
-    if isinstance(gate, TGate):
-      t_accum += gate.power
-    elif isinstance(gate, WIGate):
-      w_accum += gate.power
-    elif isinstance(gate, FGate):
-      if t_accum % 10 != 0:
-        result.append(TGate(t_accum % 10))
-        t_accum = 0
-      if w_accum % 10 != 0:
-        result.insert(0, WIGate(w_accum % 10))
-        w_accum = 0
-      if result and isinstance(result[-1], FGate):
-        result.pop()  # F * F = I
-      else:
-        result.append(FGate())
-    else:
-      if t_accum % 10 != 0:
-        result.append(TGate(t_accum % 10))
-        t_accum = 0
-      if w_accum % 10 != 0:
-        result.insert(0, WIGate(w_accum % 10))
-        w_accum = 0
-      result.append(gate)
-    i += 1
-
-  if t_accum % 10 != 0:
-    result.append(TGate(t_accum % 10))
-  if w_accum % 10 != 0:
-    result.insert(0, WIGate(w_accum % 10))
-
-  cleaned = []
-  for g in result:
-    if isinstance(g, TGate) and g.power % 10 == 0:
-      continue
-    if isinstance(g, WIGate) and g.power % 10 == 0:
-      continue
-    cleaned.append(g)
-  return cleaned
-
-
-REWRITE_RULES = [
-  ([WIGate(6), TGate(7)], [Sigma1(1)]),
-  ([WIGate(6), FGate(1), TGate(7), FGate(1)], [Sigma2(1)]),
-  ([FGate(1)], [WIGate(4), Sigma1(1), Sigma2(1), Sigma1(1)]),
-]
-
-
-def peephole_rewrite_to_sigma(gates: List[Gate]) -> List[Gate]:
-  i = 0
-  result = []
-  while i < len(gates):
-    matched = False
-    for pattern, replacement in REWRITE_RULES:
-      if gates[i : i + len(pattern)] == pattern:
-        print(pattern)
-        result.extend(replacement)
-        i += len(pattern)
-        matched = True
-        break
-    if not matched:
-      result.append(gates[i])
-      i += 1
-  return result
-
-
-def fully_reduce_to_sigma(gates: List[Gate]) -> List[Gate]:
-  gates = canonicalize_and_reduce_identities(gates)
-  while True:
-    new_gates = peephole_rewrite_to_sigma(gates)
-    if new_gates == gates:
-      break
-    gates = new_gates
-  return gates
-
-
 T_power_table = [ExactUnitary.T() ** j for j in range(11)]
 FT_power_table = [ExactUnitary.F() * T_power_table[j] for j in range(11)]
 omega_k_T_j_table = {}
@@ -162,10 +78,6 @@ def exact_synthesize(U: ExactUnitary) -> List[Gate]:
 
 
 class ExactFibonacciSynthesizer:
-  decimals: int
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  PHI = TAU + 1
-
   @classmethod
   def __G(cls, u: ExactUnitary):
     return u.gauss_complexity()
@@ -181,9 +93,8 @@ class ExactFibonacciSynthesizer:
     """
     phi = mpmath.mpf(phi)
     eps = mpmath.mpf(epsilon)
-
-    TAU = cls.TAU
-    PHI = cls.PHI
+    TAU = (mpmath.sqrt(5) - 1) / 2
+    PHI = TAU + 1
 
     C = mpmath.sqrt(PHI / 4)
 
@@ -192,17 +103,19 @@ class ExactFibonacciSynthesizer:
     theta = None
     k_final = None
 
-    pi_over_5 = math.pi / 5
-
+    pi_over_5 = mpmath.pi / 5
+    k_candidate = round(-5 * phi / (2 * mpmath.pi))
     for k in range(-11, 11):
-      theta_candidate = -phi / 2 - math.pi * (k / 5)
-      if 0 <= theta_candidate <= pi_over_5:
+      theta_candidate = -phi / 2 - mpmath.pi * (mpmath.mpf(k) / 5)
+      if 0 <= theta_candidate < pi_over_5:
         theta = theta_candidate
         k_final = k
         break
-    assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
+
     if theta is None:
       raise ValueError("Failed to find suitable k.")
+    assert k_final is not None, "k was None"
+    assert 0 <= theta <= pi_over_5, "Theta out of bounds: " + str(theta)
 
     u = ZOmega.Zero()
     v = ZOmega.Zero()
@@ -218,7 +131,7 @@ class ExactFibonacciSynthesizer:
       if easy_solvable(fl):
         not_found = False
 
-        u = ZOmega.Omega()**k * (ZOmega.Tau() ** m) * u0
+        u = (ZOmega.Omega() ** (k_final % 10)) * (ZOmega.Tau() ** m) * u0
 
         v = (ZOmega.Tau() ** m) * solve_norm_equation(xi)
 
@@ -247,7 +160,9 @@ class ExactFibonacciSynthesizer:
         theta = theta_candidate
         k = kk
         break
-    assert 0 <= theta <= math.pi / 5, "Theta out of bounds: " + str(theta)
+
+    assert theta is not None, "Theta not found."
+    assert 0 <= theta < math.pi / 5, "Theta out of bounds: " + str(theta)
     u = ZOmega.Zero()
     v = ZOmega.Zero()
     not_found = True
@@ -321,9 +236,9 @@ def evaluate_gate_sequence(gates: List[Gate]) -> ExactUnitary:
     elif isinstance(gate, WIGate):
       U = U * ExactUnitary.I().omega_mul(gate.power)
     elif isinstance(gate, Sigma1):
-      U = U * ExactUnitary.Sigma1()
+      U = U * ExactUnitary.sigma1()
     elif isinstance(gate, Sigma2):
-      U = U * ExactUnitary.Sigma2()
+      U = U * ExactUnitary.sigma2()
     else:
       raise ValueError(f"Unknown gate type: {gate}")
   return U
@@ -333,18 +248,19 @@ def d_z_(phi, U: ExactUnitary):
   phi = mpmath.mpf(phi)
   return mpmath.sqrt(1 - mpmath.fabs(mpmath.re(U.u.evaluate() * mpmath.exp(1j * phi / 2))))
 
-def _d_z(phi, u : ZOmega):
+
+def _d_z(phi, u: ZOmega):
   phi = mpmath.mpf(phi)
   return mpmath.sqrt(1 - mpmath.fabs(mpmath.re(u.evaluate() * mpmath.exp(1j * phi / 2))))
 
 
-def d_z(phi, U : ExactUnitary):
-    phi = mpmath.mpf(phi)
-    z = mpmath.mpc(U.u.evaluate()) * mpmath.exp(1j * phi / 2) 
-    x = mpmath.fabs(mpmath.re(z))
-    if x > 0.999999:
-        return mpmath.sqrt(2 * (1 - x))
-    return mpmath.sqrt(1 - x)
+def d_z(phi, U: ExactUnitary):
+  phi = mpmath.mpf(phi)
+  z = mpmath.mpc(U.u.evaluate()) * mpmath.exp(1j * phi / 2)
+  x = mpmath.fabs(mpmath.re(z))
+  if x > 0.999999:
+    return mpmath.sqrt(2 * (1 - x))
+  return mpmath.sqrt(1 - x)
 
 
 def d_zx(phi, U: ExactUnitary):

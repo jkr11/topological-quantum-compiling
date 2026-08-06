@@ -1,6 +1,4 @@
-from functools import cached_property
 from exact_synthesis.rings import ZOmega, ZTau, N_i
-import numpy as np
 from typing import List
 import mpmath
 
@@ -39,7 +37,7 @@ class ExactUnitary:
     elif other == self.T():
       return ExactUnitary(self.u, self.v, (self.k + 1) % 10)
     elif self == self.T():
-      return ExactUnitary(other.u, other.v * ZOmega.Omega(), other.k + 1 % 10)
+      return ExactUnitary(other.u, other.v * ZOmega.Omega(), (other.k + 1) % 10)
     u3 = self.u * other.u + self.v.conjugate() * other.v * ZOmega.Tau() * ZOmega.Omega_(self.k)
     v3 = self.v * other.u - self.u.conjugate() * other.v * ZOmega.Omega_(self.k)
     k = (other.k + self.k) % 10
@@ -61,13 +59,7 @@ class ExactUnitary:
   def __hash__(self):
     return hash((self.u, self.v, self.k))
 
-  def to_numpy(self, threshold: float|None = None) -> np.ndarray:
-    matrix = np.matrix(self.to_matrix.tolist(), dtype=np.complex256).reshape(2, 2)
-    if threshold:
-      matrix[np.abs(matrix) < threshold] = 0
-    return matrix
 
-  @cached_property
   def to_matrix(self):
     tau = (mpmath.sqrt(5) - 1) / 2
     sqrt_tau = mpmath.sqrt(tau)
@@ -87,23 +79,22 @@ class ExactUnitary:
     return mpmath.matrix([[entry11, entry12], [entry21, entry22]], dtype=complex)
 
   def __pow__(self, k: int) -> "ExactUnitary":
-    if not isinstance(k, int):
-      raise ValueError(f"exponent has to be integer, was {type(k)}")
-    if k < 0:
-      raise ValueError(f"exponent has to be positive integer, was {k}")
-    if k == 0:
-      return ExactUnitary.I()
-    basis = self
-    rhs = self
-    for i in range(1, k):
-      basis = basis * rhs
-    return basis
+    if not isinstance(k, int) or k < 0:
+      raise ValueError(f"Exponent must be a non-negative integer, got {k}")
+
+    result = ExactUnitary.I()
+    base = self
+    while k > 0:
+      if k % 2 == 1:
+        result = result * base
+      base = base * base
+      k //= 2
+    return result
 
   def __eq__(self, other) -> bool:
     if isinstance(other, ExactUnitary):
-      return self.u == other.u and self.v == other.v and self.k == other.k % 10
-    else:
-      raise ValueError(f"Can only compare ExactUnitary to ExactUnitary, but was {type(other)}")
+      return self.u == other.u and self.v == other.v and self.k == (other.k % 10)
+    return False
 
   def gauss_complexity(self) -> int:
     return self.u.gauss_complexity().evaluate()

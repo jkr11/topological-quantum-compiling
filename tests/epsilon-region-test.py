@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+#import matplotlib.pyplot as plt
+#from matplotlib.patches import Circle
 import mpmath
 from exact_synthesis.prec import approx_real
 from exact_synthesis.rings import ZOmega
@@ -233,7 +233,7 @@ def test_point_on_circle(theta, epsilon, r):
 # Try it
 mpmath.mp.dps = 400
 
-theta = mpmath.pi / 10
+theta = mpmath.pi / 400
 epsilon = 1e-21
-r = 1
+r = 1.0
 check_samples_in_parallelogram(theta, epsilon, r)
