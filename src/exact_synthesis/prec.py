@@ -43,8 +43,7 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
   theta = mp.mpf(theta)
   epsilon = mp.mpf(epsilon)
   r = mp.mpf(r)
-  epsilon = epsilon**2
-
+  
   phi = (1 + mp.sqrt(5)) / 2
   tau = phi - 1  # = 1/phi
 

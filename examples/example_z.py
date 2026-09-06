@@ -43,7 +43,7 @@ def dist_trace_norm(U: ExactUnitary, phi):
 if __name__ == "__main__":
   mpmath.mp.dps = 400
   phi = mpmath.pi / 2
-  epsilon = mpmath.mpf(1e-20)
+  epsilon = mpmath.mpf(1e-80)
   seps = mpmath.mp.sqrt(epsilon)
   print("Sqrt epsilon: ", seps)
   while True:
@@ -55,7 +55,7 @@ if __name__ == "__main__":
       print(f"Gate sequence: {len(exact_synthesize(g))}")
       actual = rz_matrix(phi)
       approx = (g).to_matrix()
-      print("Is less that sqrt(epsilon):", dist(g, phi) <= seps)
+      print("Is less that sqrt(epsilon):", dist(g, phi) <= mpmath.mpf(1e-40))
       break
     except ValueError as e:
       print(f"Caught error: {e} -- retrying ...")
