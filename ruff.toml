@@ -1,6 +1,6 @@
 indent-width = 2
 preview = true
-target-version = "py312"
+target-version = "py314"
 line-length = 150
 
 lint.ignore = [
@@ -9,3 +9,4 @@ lint.ignore = [
 ]
 
 exclude = ["print.py"] # TODO: remove this later
+extend-select = ["UP"]
