@@ -7,6 +7,9 @@ from exact_synthesis.rings import ZOmega, ZTau, N_i
 from exact_synthesis.numberTheory import easy_factor, easy_solvable, solve_norm_equation
 from exact_synthesis.prec import random_sample
 
+import numpy as np  # or get rid of numpy instead
+import cmath  # get rid of this for phase? but its not an extra dep so w/e.
+
 
 @dataclass(frozen=True)
 class TGate:
@@ -15,7 +18,7 @@ class TGate:
 
 @dataclass(frozen=True)
 class FGate:
-  power: int
+  power: int = 0
 
 
 @dataclass(frozen=True)
@@ -76,7 +79,7 @@ def synthesize_z_rotation(phi, epsilon) -> ExactUnitary:
   PHI = TAU + 1
 
   C = mpmath.sqrt(PHI / 4)
-  m = int(mpmath.ceil(mpmath.log(C * eps, TAU))) + 1
+  m = int(mpmath.ceil(mpmath.log(C * eps) / mpmath.log(TAU))) + 1
 
   theta, k = _find_theta_k(-phi / 2)
 
@@ -140,3 +143,86 @@ def d_zx(phi, U: ExactUnitary):
   TAU = (mpmath.sqrt(5) - 1) / 2
   z = U.v.evaluate() * mpmath.exp(-1j * (phi / 2 + mpmath.pi / 2))
   return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs(z.real))
+
+
+def operator_distance(U: np.ndarray, V: np.ndarray) -> float:
+  tr = np.trace(U.conj().T @ V)
+  x = np.clip(np.abs(tr) / 2, 0.0, 1.0)
+  return 2.0 * np.sqrt(1.0 - x**2)
+
+
+def decompose(U: np.ndarray):
+  # global phase
+  det = np.linalg.det(U)
+  global_phase = cmath.phase(det) / 2
+  U_prime = U * np.exp(-1j * global_phase)
+
+  u00 = U_prime[0, 0]
+  u01 = U_prime[0, 1]
+
+  if np.isclose(np.abs(u00), 0.0):
+    # U = e^{i \delta_{alt}} R_z(\phi) X
+    p1 = cmath.phase(U[0, 1])
+    p2 = cmath.phase(U[1, 0])
+    return {"type": "X", "delta": (p1 + p2) / 2, "phi": p2 - p1}
+
+  tau = (np.sqrt(5) - 1) / 2
+
+  if np.isclose(np.abs(u01), 0.0):
+    return {"type": "Z", "delta": global_phase, "alpha": -2 * cmath.phase(u00), "beta": 0.0, "gamma": 0.0}
+
+  cos_beta = np.clip(1.0 - (np.abs(u01) ** 2) / (2 * tau**3), -1.0, 1.0)
+  beta = np.arccos(cos_beta)
+
+  M00 = tau**2 * np.exp(-1j * beta / 2) + tau * np.exp(1j * beta / 2)
+  M01 = -2j * tau * np.sqrt(tau) * np.sin(beta / 2)
+
+  phase_plus = cmath.phase(M00 / u00)
+  phase_minus = cmath.phase(M01 / u01)
+
+  return {"type": "Z", "delta": global_phase, "alpha": phase_plus + phase_minus, "beta": beta, "gamma": phase_plus - phase_minus}
+
+
+def synthesize_unitary(target_matrix: np.ndarray, epsilon) -> ExactUnitary:
+  decomp = decompose(target_matrix)
+  if decomp["type"] == "X":
+    return synthesize_zx_rotation(decomp["phi"], epsilon)
+  elif decomp["type"] == "Z":
+    Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon / 3)
+    print("alpha: ", decomp["alpha"])
+    #assert d_z(decomp["alpha"], Ralpha) <= mpmath.sqrt(epsilon/3), f"Accuracy false: {d_z(decomp["alpha"], Ralpha)} vs {mpmath.sqrt(epsilon/3)}"
+    Rbeta = synthesize_z_rotation(decomp["beta"], epsilon / 3)
+    Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon / 3)
+    # return exact_synthesize(Ralpha) + [FGate()] + exact_synthesize(Rbeta) + [FGate()] + exact_synthesize(Rgamma)
+    return Ralpha * ExactUnitary.F() * Rbeta * ExactUnitary.F() * Rgamma
+  else:
+    raise NotImplementedError("Unknown decomposition")
+
+
+def Z(theta: float) -> np.ndarray:
+  return np.array([[np.exp(-1j * theta / 2), 0], [0, np.exp(1j * theta / 2)]], dtype=complex)
+
+
+def F() -> np.ndarray:
+  tau = (np.sqrt(5) - 1) / 2
+  return np.array([[tau, np.sqrt(tau)], [np.sqrt(tau), -tau]], dtype=complex)
+
+
+if __name__ == "__main__":
+  mpmath.mp.dps = 200
+  import numpy as np
+  from exact_synthesis.util import haar_random_su2
+
+  U = haar_random_su2()
+  print(U)
+  params = decompose(U)
+
+  U_reconstructed = np.exp(1j * params["delta"]) * Z(params["alpha"]) @ F() @ Z(params["beta"]) @ F() @ Z(params["gamma"])
+
+  print(np.max(np.abs(U - U_reconstructed)))
+  print(np.max(np.abs(U.conj().T @ U - np.eye(2))))
+
+  U_approx = synthesize_unitary(U, mpmath.mpf(1e-40))
+  Ua = U_approx.to_numpy()
+  print(Ua)
+  print(operator_distance(Ua, U))

@@ -18,8 +18,12 @@ def haar_random_su2():  # TODO: check
 
   a, b, c, d = u
 
-  U = np.array([[a + 1j * b, c + 1j * d], [-c + 1j * d, a - 1j * b]])
-  return U
+  return np.array([[a + 1j * b, c + 1j * d], [-c + 1j * d, a - 1j * b]])
+
+
+def qr_random_su2():
+  A = np.random.randn(2, 2) + 1j * np.random.randn(2, 2)
+  return np.linalg.qr(A)[0]
 
 
 def phase(z):
@@ -73,7 +77,7 @@ def matrix_of_euler_angles(angles: tuple) -> np.ndarray:
   return op
 
 
-def is_Rz(U: np.ndarray, tol: float = 1e-10) -> tuple[bool, float|None]:
+def is_Rz(U: np.ndarray, tol: float = 1e-10) -> tuple[bool, float | None]:
   if U.shape != (2, 2):
     return False, None
   if not np.allclose(U, np.diag(np.diag(U)), atol=tol):

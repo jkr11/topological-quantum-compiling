@@ -43,9 +43,9 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
   theta = mp.mpf(theta)
   epsilon = mp.mpf(epsilon)
   r = mp.mpf(r)
-  
-  phi = (1 + mp.sqrt(5)) / 2
-  tau = phi - 1  # = 1/phi
+
+  tau = (mp.sqrt(5) - 1) / 2
+  phi = tau + 1
 
   C = mp.sqrt(phi / (4 * r))
   m = int(mp.ceil(mp.log(C * epsilon * r) / mp.log(tau))) + 1
@@ -59,6 +59,7 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
 
   y_min = r * phi**m * (sin_t - epsilon * (sqrt4_eps2 * cos_t + epsilon * sin_t) / 2)
   y_max = r * phi**m * (sin_t + epsilon * (sqrt4_eps2 * cos_t - epsilon * sin_t) / 2)
+
   x_max = r * phi**m * ((1 - epsilon**2 / 2) * cos_t - epsilon * mp.sqrt(1 - epsilon**2 / 4) * sin_t)
   x_c = x_max - (r * epsilon**2 * phi**m / (4 * cos_t))
 
@@ -68,14 +69,24 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
   sqrt_2_minus_tau = mp.sqrt(2 - tau)
 
   ay_by = approx_real(y / sqrt_2_minus_tau, m)
-  a_y, b_y = ay_by.a, ay_by.b
 
-  x = x_c - ((a_y + b_y * tau) * sqrt_2_minus_tau - y_min) * mp.tan(theta)
+  x = x_c - ((ay_by.evaluate()) * sqrt_2_minus_tau - y_min) * mp.tan(theta)
+
+  # assert x < x_max
+  #print(y_min)
+  #print(ay_by.evaluate())
+  assert abs(y - ay_by.evaluate())*sqrt_2_minus_tau <= (y_max - y_min)/2*N
+  # assert y_min < ay_by < y_max # So this does not compute
+  # By
 
   ax_bx = approx_real(x, m)
-  a_x, b_x = ax_bx.a, ax_bx.b
 
-  real_part = ZTau(a_x, b_x).to_cycl()
-  imag_part = SQRT_TAU_MINUS_2 * ZTau(a_y, b_y).to_cycl()
+ # assert (ax_bx.evaluate() - (x_c - (ay_by.evaluate() - y_min) * sin_t)) <= phi**m * r * epsilon**2 / 4
 
-  return real_part + imag_part
+  real_part = ax_bx.to_cycl()
+  imag_part = SQRT_TAU_MINUS_2 * ay_by.to_cycl()
+
+  result = real_part + imag_part
+  assert y_min < imag_part.evaluate().imag < y_max
+  #assert ax_bx.evaluate() < x_max
+  return result

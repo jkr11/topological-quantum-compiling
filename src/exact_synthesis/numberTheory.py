@@ -34,7 +34,7 @@ def is_prime(p: int) -> bool:
 
 
 def miller_rabin(n: int, k: int = 7) -> bool:
-  """Use Miller-Rabin primality test to check if n is prime.
+  """
   k is number of accuracy rounds.
   """
   if n < 2:
@@ -182,12 +182,11 @@ def tonelli_shanks(n: int, p: int) -> tuple[int, int]:
   while q % 2 == 0:
     q //= 2
     s += 1
-  print(s)
+  # print(s)
   if s == 1:
     r: int = pow(n, ((p + 1) // 4), p)
     return (r, p - r)
 
-  # By randomized trial, find a quadratic residue z.
   z: int = 2
   while legendre_symbol(z, p) != p - 1:
     z += 1
@@ -315,11 +314,6 @@ def solve_norm_equation_alt(xi: ZTau) -> ZOmega:
   assert s == 1 and m % 2 == 0, f"Unit DLOG failed: s={s}, m={m}"
 
   return (ZOmega.Tau() ** (m // 2)) * (sqrt_tau_minus_two**n) * xr
-
-
-def epsilon_region(r: float, theta: float):
-  pass
-
 
 if __name__ == "__main__":
   test = ZTau(15, -8)

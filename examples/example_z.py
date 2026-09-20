@@ -25,8 +25,8 @@ def rz_matrix(phi):
 
 
 def dist_trace_norm(U: ExactUnitary, phi):
-  """Computes the trace-norm:
-  d(R_z(phi), U) = sqrt(1 - (1/2) * |Tr(R_z(phi)^dagger * U)|)
+  """
+  d(R_z(phi), U) = sqrt(1 - (1/2) * |Tr(R_z(phi)^T * U)|)
   """
   Rz = rz_matrix(phi)
   U_mat = U.to_matrix()
@@ -41,21 +41,26 @@ def dist_trace_norm(U: ExactUnitary, phi):
 
 
 if __name__ == "__main__":
-  mpmath.mp.dps = 400
-  phi = mpmath.pi / 2
-  epsilon = mpmath.mpf(1e-80)
+  mpmath.mp.dps = 200
+  # phi = mpmath.pi / 2
+  phi = mpmath.mpf(2.028610148604752)
+
+  epsilon = mpmath.mpf(1e-40)/3
   seps = mpmath.mp.sqrt(epsilon)
   print("Sqrt epsilon: ", seps)
-  while True:
+  while True: # Also not sure why this should be the case.
     try:
-      g = synthesize_z_rotation(phi, epsilon) * ExactUnitary.T() ** 5
+      g = synthesize_z_rotation(phi, epsilon) * ExactUnitary.T()**5 # This seems to be necessary to get trace norm to work
       print("d(R_z, U[u,v,0] =", dist(g, phi))
-      print("Trace Norm =", dist_trace_norm(g, phi))
-      print("Is less that epsilon: ", epsilon >= dist(g, phi))
+      print("Trace Norm =", dist_trace_norm(g, phi)) # THis is not actually equal without the T**5 adddition.
+      # However it is when we do 1-trace_norm then we get <= epsilon. Strange.  
+      print("Is less that epsilon: ", epsilon >= dist(g, phi)) 
       print(f"Gate sequence: {len(exact_synthesize(g))}")
       actual = rz_matrix(phi)
       approx = (g).to_matrix()
-      print("Is less that sqrt(epsilon):", dist(g, phi) <= mpmath.mpf(1e-40))
+      print("Is less that sqrt(epsilon):", dist(g, phi) <= seps)
+      print("d(g,phi) - sqrt(eps)", dist(g,phi) - seps)
+      print("log(1/eps): ", mpmath.log(1/epsilon))
       break
     except ValueError as e:
       print(f"Caught error: {e} -- retrying ...")

@@ -78,6 +78,12 @@ class ExactUnitary:
 
     return mpmath.matrix([[entry11, entry12], [entry21, entry22]], dtype=complex)
 
+  def to_numpy(self):
+    import numpy as np
+
+    matrix = self.to_matrix()
+    return np.array(matrix.tolist(), dtype=np.complex256)
+
   def __pow__(self, k: int) -> ExactUnitary:
     if not isinstance(k, int) or k < 0:
       raise ValueError(f"Exponent must be a non-negative integer, got {k}")
