@@ -41,7 +41,7 @@ def exact_synthesize(U: ExactUnitary) -> list[Gate]:
   while g > 2:
     min_complexity = None
     J = None
-    for j in range(1, 11):  # j in {1, ..., 10}, per Fig. 4 line 4
+    for j in range(1, 11):
       gg = (_FT_power_table[j] * Ur).gauss_complexity()
       if min_complexity is None or gg < min_complexity:
         min_complexity = gg
@@ -53,7 +53,7 @@ def exact_synthesize(U: ExactUnitary) -> list[Gate]:
     C.insert(0, FGate(1))
 
   if Ur not in _omega_k_T_j_table:
-    raise ValueError("Final reduction failed: Ur is not of the form omega^k T^j")
+    raise ValueError("Final reduction failed: U_r is not of the form omega^k T^j")
 
   k, j = _omega_k_T_j_table[Ur]
   if j != 0:
@@ -188,11 +188,11 @@ def synthesize_unitary(target_matrix: np.ndarray, epsilon) -> ExactUnitary:
   if decomp["type"] == "X":
     return synthesize_zx_rotation(decomp["phi"], epsilon)
   elif decomp["type"] == "Z":
-    Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon / 3)
+    Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon)
     print("alpha: ", decomp["alpha"])
     #assert d_z(decomp["alpha"], Ralpha) <= mpmath.sqrt(epsilon/3), f"Accuracy false: {d_z(decomp["alpha"], Ralpha)} vs {mpmath.sqrt(epsilon/3)}"
-    Rbeta = synthesize_z_rotation(decomp["beta"], epsilon / 3)
-    Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon / 3)
+    Rbeta = synthesize_z_rotation(decomp["beta"], epsilon)
+    Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon)
     # return exact_synthesize(Ralpha) + [FGate()] + exact_synthesize(Rbeta) + [FGate()] + exact_synthesize(Rgamma)
     return Ralpha * ExactUnitary.F() * Rbeta * ExactUnitary.F() * Rgamma
   else:

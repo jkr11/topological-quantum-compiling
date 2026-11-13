@@ -3,6 +3,10 @@ import mpmath
 from mpmath import mp
 
 
+def _rounddiv(x: int, y: int) -> int:
+  return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
+
+
 class ZOmega:
   """
   Ring of Cyclotomic integers of order 10
@@ -127,16 +131,14 @@ class ZOmega:
   def galois_automorphism_product(self):
     return self.galois_automorphism(3) * self.galois_automorphism(7) * self.galois_automorphism(9)
 
+  # TODO fix
   def __divmod__(self, other) -> tuple[ZOmega, ZOmega]:
-    def rounddiv(x: int, y: int) -> int:
-      return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
-
     if isinstance(other, int):
       other = self.from_int(other)
     if isinstance(other, self.__class__):
       p = self * other.galois_automorphism_product()
       k = N(other)
-      q_coeffs = [rounddiv(c, k) for c in p.coeffs()]
+      q_coeffs = [_rounddiv(c, k) for c in p.coeffs()]
 
       q = self.__class__(*q_coeffs)
       r = self - other * q
@@ -148,7 +150,7 @@ class ZOmega:
     q, _ = divmod(self, other)
     return q
 
-  def __div__(self, other):
+  def __truediv__(self, other):
     raise NotImplementedError("Only __floordiv__ available as ZOmega only supports Integer coefficients.")
 
   def galois_norm(self) -> int:
@@ -233,7 +235,7 @@ class ZOmega:
 
 class ZTau:
   """
-  Real subring of ZOmega, also integers adjoint (sqrt(5) - 1) / 2
+  Real subring of ZOmega := Z [(sqrt(5) - 1) / 2]
   """
 
   def __init__(self, a: int, b: int):
@@ -259,7 +261,6 @@ class ZTau:
     return self.a + self.b * tau
 
   def automorphism(self):
-    """applies the automorphism w -> w^3 to 'self', on tau = w^2 - w^3. aut(tau) = -phi, where phi = 1 + tau. Thus aut(a + btau) = a - (1 + tau)b"""
     return ZTau(self.a - self.b, -self.b)
 
   def norm(self) -> int:
@@ -340,7 +341,10 @@ class ZTau:
   def __eq__(self, other):
     if isinstance(other, int):
       return self.a == other and self.b == 0
-    return self.a == other.a and self.b == other.b
+    elif isinstance(other, ZTau):
+      return self.a == other.a and self.b == other.b
+    else:
+      raise NotImplementedError(f"Types not matching {other.__class__}")
 
   def inv(self):
     # TODO: fix with normal arithmetic
@@ -372,29 +376,17 @@ class ZTau:
         return f"{self.a} - τ"
       return f"{self.a} - {-self.b}τ"
 
-  def __divmod__(self, other: ZTau) -> tuple[ZTau, ZTau]:
-    if not isinstance(other, ZTau):
-      raise TypeError(f"divmod does not support {type(self)} and {type(other)}")
-
-    def rounddiv(x: int, y: int) -> int:
-      return (x + y // 2) // y if y > 0 else (x - (-y) // 2) // y
-
+  def __divmod__(self, other) -> tuple[ZTau, ZTau]:
     if isinstance(other, int):
-      other = ZTau(other, 0)
-
-    a_cyclo = self.to_cycl()
-    b_cyclo = other.to_cycl()
-
-    p = a_cyclo * b_cyclo.galois_automorphism_product()
-    k = N(other.to_cycl())  # TODO: check why this is different when casting
-
-    q_coeffs: list[int] = [rounddiv(c, k) for c in p.coeffs()]
-    q_cyclo = ZOmega(*q_coeffs)
-
-    q = q_cyclo.to_subring()
-
-    r = self - other * q
-    return q, r
+      other = ZTau.from_int(other)
+    if not isinstance(other, ZTau):
+      return NotImplemented
+    k = N_tau(other)
+    if k == 0:
+      raise ZeroDivisionError("division by zero in ZTau")
+    p = self * other.automorphism()
+    q = ZTau(_rounddiv(p.a, k), _rounddiv(p.b, k))
+    return q, self - other * q
 
   def __floordiv__(self, other: ZTau) -> ZTau:
     q, _ = divmod(self, other)
@@ -426,3 +418,17 @@ def gauss_complexity_measure(eta: ZOmega) -> int:
   N_i(eta) + N_i(eta^aut) evaluates to a ZTau, but since this equation is idempotent over autimorphisms, we can just cast to int.
   """
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
+
+
+if __name__ == "__main__":
+  import random
+
+  # Move to test
+  for _ in range(10_000):
+    a = ZTau(random.randint(-50, 50), random.randint(-50, 50))
+    b = ZTau(random.randint(-50, 50), random.randint(-50, 50))
+    if N_tau(b) == 0:
+      continue
+    q, r = divmod(a, b)
+    assert a == b * q + r
+    assert abs(N_tau(r)) < abs(N_tau(b))
