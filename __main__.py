@@ -1,6 +1,6 @@
 import argparse
 import mpmath
-from exact_synthesis.synthesis import synthesize_z_rotation, synthesize_zx_rotation
+from exact_synthesis.synthesis import synthesize_z_rotation, synthesize_zx_rotation, exact_synthesize
 
 
 def main():
@@ -9,8 +9,6 @@ def main():
   parser.add_argument("epsilon", type=str)
   parser.add_argument("--zx", action="store_true", help="Use ZX synthesis instead of Z synthesis")
   parser.add_argument("--precision", type=int, default=100, help="Precision for mpmath (default: 100)")
-  parser.add_argument("--draw", action="store_true", help="Draw the circuit")
-  parser.add_argument("--braids", action="store_true", help="draw braids")
 
   args = parser.parse_args()
   mpmath.mp.dps = args.precision
@@ -25,6 +23,7 @@ def main():
   else:
     gates = synthesize_z_rotation(theta, epsilon)
     print(f"Z-rotation circuit for φ = {theta}:")
+  gates = exact_synthesize(gates)
   print(f"Number of gates: {len(gates)}")
   print(f"Gate sequence: {gates}")
 

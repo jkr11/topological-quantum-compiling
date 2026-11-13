@@ -41,11 +41,12 @@ def dist_trace_norm(U: ExactUnitary, phi):
 
 
 if __name__ == "__main__":
-  mpmath.mp.dps = 200
+  mpmath.mp.dps = 400
   # phi = mpmath.pi / 2
-  phi = mpmath.mpf(2.028610148604752)
+  # phi = mpmath.mpf(2.028610148604752)
+  phi = mpmath.rand()
 
-  epsilon = mpmath.mpf(1e-40)/3
+  epsilon = mpmath.mpf(1e-80)/3
   seps = mpmath.mp.sqrt(epsilon)
   print("Sqrt epsilon: ", seps)
   while True: # Also not sure why this should be the case.
@@ -59,6 +60,7 @@ if __name__ == "__main__":
       actual = rz_matrix(phi)
       approx = (g).to_matrix()
       print("Is less that sqrt(epsilon):", dist(g, phi) <= seps)
+      print("\n")
       print("d(g,phi) - sqrt(eps)", dist(g,phi) - seps)
       print("log(1/eps): ", mpmath.log(1/epsilon))
       break
