@@ -34,33 +34,25 @@ _omega_k_T_j_table = {ExactUnitary.I().omega_mul(k) * _T_power_table[j]: (k, j) 
 
 
 def exact_synthesize(U: ExactUnitary) -> list[Gate]:
-  g = U.gauss_complexity()
   Ur = U
-  C: list[Gate] = []
+  gates: list[Gate] = []
 
-  while g > 2:
-    min_complexity = None
-    J = None
-    for j in range(1, 11):
-      gg = (_FT_power_table[j] * Ur).gauss_complexity()
-      if min_complexity is None or gg < min_complexity:
-        min_complexity = gg
-        J = j
-    assert J is not None, "J was None"
-    Ur = _FT_power_table[J] * Ur
-    g = Ur.gauss_complexity()
-    C.insert(0, TGate((10 - J) % 10))
-    C.insert(0, FGate(1))
+  while (g := Ur.gauss_complexity() > 2):
+    J, Ur = min(
+      ((j, _FT_power_table[j] * Ur) for j in range(1, 11)),
+      key=lambda c: c[1].gauss_complexity(),
+    )
+    #if Ur.gauss_complexity() >= g:
+    #  raise ValueError(f"Complexity is not decreasing: {g}")
+    gates += [TGate((10 - J) % 10), FGate(1)]
 
-  if Ur not in _omega_k_T_j_table:
-    raise ValueError("Final reduction failed: U_r is not of the form omega^k T^j")
 
   k, j = _omega_k_T_j_table[Ur]
-  if j != 0:
-    C.insert(0, TGate(j))
-  if k != 0:
-    C.insert(0, WIGate(k))
-  return C
+  if j:
+    gates.append(TGate(j))
+  if k:
+    gates.append(WIGate(k))
+  return gates[::-1]
 
 
 def _find_theta_k(base_angle, k_range=range(-11, 11)):
@@ -190,7 +182,7 @@ def synthesize_unitary(target_matrix: np.ndarray, epsilon) -> ExactUnitary:
   elif decomp["type"] == "Z":
     Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon)
     print("alpha: ", decomp["alpha"])
-    #assert d_z(decomp["alpha"], Ralpha) <= mpmath.sqrt(epsilon/3), f"Accuracy false: {d_z(decomp["alpha"], Ralpha)} vs {mpmath.sqrt(epsilon/3)}"
+    # assert d_z(decomp["alpha"], Ralpha) <= mpmath.sqrt(epsilon/3), f"Accuracy false: {d_z(decomp["alpha"], Ralpha)} vs {mpmath.sqrt(epsilon/3)}"
     Rbeta = synthesize_z_rotation(decomp["beta"], epsilon)
     Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon)
     # return exact_synthesize(Ralpha) + [FGate()] + exact_synthesize(Rbeta) + [FGate()] + exact_synthesize(Rgamma)
@@ -209,20 +201,9 @@ def F() -> np.ndarray:
 
 
 if __name__ == "__main__":
-  mpmath.mp.dps = 200
-  import numpy as np
-  from exact_synthesis.util import haar_random_su2
+  import random
+  import mpmath
 
-  U = haar_random_su2()
-  print(U)
-  params = decompose(U)
-
-  U_reconstructed = np.exp(1j * params["delta"]) * Z(params["alpha"]) @ F() @ Z(params["beta"]) @ F() @ Z(params["gamma"])
-
-  print(np.max(np.abs(U - U_reconstructed)))
-  print(np.max(np.abs(U.conj().T @ U - np.eye(2))))
-
-  U_approx = synthesize_unitary(U, mpmath.mpf(1e-40))
-  Ua = U_approx.to_numpy()
-  print(Ua)
-  print(operator_distance(Ua, U))
+  mpmath.mp.dps = 400
+  
+  
