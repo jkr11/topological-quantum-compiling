@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import mpmath
 from mpmath import mp
+from dataclasses import dataclass
 
 
 def _rounddiv(x: int, y: int) -> int:
@@ -8,8 +10,21 @@ def _rounddiv(x: int, y: int) -> int:
 
 
 class ZOmega:
-  """
-  Ring of Cyclotomic integers of order 10
+  r"""Ring of cyclotomic integers of order 10.
+
+  Represents elements in :math:`\mathbb{Z}[\zeta_{10}]`, where
+  :math:`\zeta_{10} = e^{2\pi i / 10}` is a primitive 10th root of unity.
+  Any element of this ring has the unique representation
+
+  .. math::
+
+      c_0 + c_1 \zeta_{10} + c_2 \zeta_{10}^2 + c_3 \zeta_{10}^3 \quad (c_i \in \mathbb{Z})
+
+    where the minimal polynomial of :math:`\zeta_{10}` is
+
+  .. math::
+
+      \Phi_{10}(x) = x^4 - x^3 + x^2 - x + 1
   """
 
   def __init__(self, c0: int, c1: int, c2: int, c3: int) -> None:
@@ -18,56 +33,43 @@ class ZOmega:
     self.c2: int = c2
     self.c3: int = c3
 
+  # @property TODO: make dataclass frozen
   def coeffs(self) -> list[int]:
     return [self.c0, self.c1, self.c2, self.c3]
 
-  def __mul__(self, other) -> ZOmega:
+  def __mul__(self, other: int | ZTau | ZOmega) -> ZOmega:
     if isinstance(other, int):
       return self.__mul__(ZOmega.from_int(other))
     elif isinstance(other, ZTau):
       return self.__mul__(other.to_cycl())
-    exponents_coeffs = [
-      (1, 0, 0, 0),  # ζ^0
-      (0, 1, 0, 0),  # ζ^1
-      (0, 0, 1, 0),  # ζ^2
-      (0, 0, 0, 1),  # ζ^3
-      (-1, 1, -1, 1),  # ζ^4
-      (-1, 0, 0, 0),  # ζ^5
-      (0, -1, 0, 0),  # ζ^6
-    ]
-    result = [0, 0, 0, 0]
-    a = self.coeffs()
-    b = other.coeffs() if isinstance(other, ZOmega) else other
-    for i in range(4):
-      for j in range(4):
-        k = i + j
-        coeffs = exponents_coeffs[k] if k < 7 else (0, 0, 0, 0)
-        term = a[i] * b[j]
-        result[0] += term * coeffs[0]
-        result[1] += term * coeffs[1]
-        result[2] += term * coeffs[2]
-        result[3] += term * coeffs[3]
-    return ZOmega(*result)
+    a, b = self.coeffs(), other.coeffs()
+    p = [0] * 7
+    for i, x in enumerate(a):
+      for j, y in enumerate(b):
+        p[i + j] += x * y
+    p[1] -= p[6]
+    p[0] -= p[5]
+    p[3] += p[4]
+    p[2] -= p[4]
+    p[1] += p[4]
+    p[0] -= p[4]
+    return ZOmega(*p[:4])
 
-  def __rmul__(self, other):
+  def __rmul__(self, other: int | ZTau | ZOmega):
     return self.__mul__(other)
 
-  def __pow__(self, exponent: int) -> ZOmega:
-    if not isinstance(exponent, int):
+  def __pow__(self, exp: int) -> ZOmega:
+    if not isinstance(exp, int):
       return NotImplemented
-    if exponent == 0:
-      return self.One()
-    if exponent > 0:
-      result = self.One()
-      for _ in range(exponent):
-        result = result * self
-      return result
-    else:
-      inv = self.inv()
-      result = self.One()
-      for _ in range(-exponent):
-        result = result * inv
-      return result
+    result = self.One()
+    base, exp = (self, exp) if exp >= 0 else (self.inv(), -exp)
+
+    while exp:
+      if exp & 1:
+        result *= base
+      base *= base
+      exp >>= 1
+    return result
 
   @classmethod
   def from_int(cls, other: int):
@@ -172,10 +174,6 @@ class ZOmega:
     return self.galois_norm() == 1
 
   def mod_one_plus_omega(self) -> int:
-    """
-    Compute eta mod (1 + ω) by substituting ω = -1.
-    The result is an integer , in the set {0, ±1, ±2}.
-    """
     c0, c1, c2, c3 = self.coeffs()
     result = c0 - c1 + c2 - c3
     return ((result + 2) % 5) - 2  # modulo N(1 + ω)
@@ -189,10 +187,8 @@ class ZOmega:
 
   def to_subring(self):
     a, b, c, d = self.coeffs()
-    if b == 0 and c == -d:
-      return ZTau(a, c)
-    else:
-      raise ValueError(f"Tau is not represented in {self}")
+    assert b == 0 and c == -d, f"Tau is not represented in {self}"
+    return ZTau(a,c)
 
   def gauss_complexity(self):
     u1 = N_i(self)
@@ -204,11 +200,12 @@ class ZOmega:
 
   def __add__(self, other: ZOmega) -> ZOmega:
     if isinstance(other, ZOmega):
+      a, b = self.coeffs(), other.coeffs()
       return ZOmega(
-        self.coeffs()[0] + other.coeffs()[0],
-        self.coeffs()[1] + other.coeffs()[1],
-        self.coeffs()[2] + other.coeffs()[2],
-        self.coeffs()[3] + other.coeffs()[3],
+        a[0] + b[0],
+        a[1] + b[1],
+        a[2] + b[2],
+        a[3] + b[3],
       )
     elif isinstance(other, int):
       a, b, c, d = self.coeffs()
@@ -242,16 +239,13 @@ class ZTau:
     self.a: int = a
     self.b: int = b
 
-  def __mul__(self, other) -> ZTau:
-    if not isinstance(other, ZTau):
+  def __mul__(self, other: int | ZTau) -> ZTau:
+    if isinstance(other, int):
       other = ZTau.from_int(other)
     a, b = self.a, self.b
     c, d = other.a, other.b
 
-    real_part = a * c + b * d
-    tau_part = a * d + b * c - (b * d)
-
-    return ZTau(real_part, tau_part)
+    return ZTau(a * c + b * d, a * d + b * c - (b * d))
 
   def to_tuple(self) -> tuple[int, int]:
     return self.a, self.b
@@ -265,7 +259,7 @@ class ZTau:
 
   def norm(self) -> int:
     x = self * self.automorphism()
-    assert x.b == 0
+    assert x.b == 0  # TODO: what is this?
     return x.a
 
   def conjugate(self):
@@ -310,18 +304,15 @@ class ZTau:
   def __pow__(self, exponent: int) -> ZTau:
     if not isinstance(exponent, int):
       raise ValueError(f"exponent must be integer, was {type(exponent)}")
-    if exponent == 0:
-      return ZTau(1, 0)
-    if exponent > 0:
-      result = ZTau(1, 0)
-      for _ in range(exponent):
-        result = result * self
-      return result
-
-    inv = self.inv()
+    base, exp = (self, exponent) if exponent >= 0 else (self.inv(), -exponent)
     result = ZTau(1, 0)
-    for _ in range(-exponent):
-      result = result * inv
+
+    while exp:
+      if exp & 1:
+        result *= base
+      base *= base
+      exp >>= 1
+
     return result
 
   def __neg__(self):
