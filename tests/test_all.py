@@ -1,14 +1,14 @@
 from exact_synthesis.prec import approx_real
 import unittest
 import pytest
-import numpy as np
 import mpmath
 from numpy.testing import assert_almost_equal
 
 from exact_synthesis.rings import ZOmega, ZTau
 from exact_synthesis.numberTheory import solve_norm_equation, unit_dlog, N_i, easy_factor, easy_solvable, solve_norm_equation_alt
 from exact_synthesis.exactUnitary import ExactUnitary
-from exact_synthesis.util import euler_angles, matrix_of_euler_angles, haar_random_su2
+from exact_synthesis.synthesis import synthesize_z_rotation, synthesize_zx_rotation
+from exact_synthesis.util import d_z, d_zx
 
 
 class TestRandomSample(unittest.TestCase):
@@ -251,12 +251,26 @@ class TestExactUnitary(unittest.TestCase):
     self.assertEqual(sigma1ct, ExactUnitary.sigma1())
 
 
-class TestEulerAngles(unittest.TestCase):
-  def test_euler_angles(self):
-    U = haar_random_su2()
-    a, b, c, d = euler_angles(U)
-    rU = matrix_of_euler_angles((a, b, c, d))
-    self.assertTrue(np.allclose(U, rU))
+PHIS = [0.3, 0.7, 2.3, -1.1, 5.9]
+EXPONENTS = [6, 10, 20, 40]
+
+
+@pytest.mark.parametrize("phi", PHIS)
+@pytest.mark.parametrize("e", EXPONENTS)
+def test_z_rotation_accuracy(phi, e):
+  with mpmath.workdps(400):
+    eps = mpmath.mpf(10) ** (-e)
+    U = synthesize_z_rotation(phi, eps)
+    assert d_z(U, phi) <= eps
+
+
+@pytest.mark.parametrize("phi", PHIS)
+@pytest.mark.parametrize("e", EXPONENTS)
+def test_zx_rotation_accuracy(phi, e):
+  with mpmath.workdps(400):
+    eps = mpmath.mpf(10) ** (-e)
+    U = synthesize_zx_rotation(phi, eps)
+    assert d_zx(U, phi) <= eps
 
 
 if __name__ == "__main__":
