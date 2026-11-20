@@ -9,7 +9,7 @@ class ExactUnitary:
     self.u: ZOmega = u
     self.v: ZOmega = v
     self.k: int = k % 10
-    self.validate()
+    self.validate()  # Technically we can get rid of this.
 
   def validate(self) -> None:
     norm_u_sq = N_i(self.u)
@@ -76,7 +76,7 @@ class ExactUnitary:
     entry21 = v_val * sqrt_tau
     entry22 = -u_conj_val * omega_k.evaluate()
 
-    return mpmath.matrix([[entry11, entry12], [entry21, entry22]], dtype=complex)
+    return mpmath.matrix([[entry11, entry12], [entry21, entry22]])
 
   def to_numpy(self):
     import numpy as np

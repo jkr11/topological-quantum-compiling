@@ -1,29 +1,27 @@
 import random
 from mpmath import mp
 
-from exact_synthesis.rings import ZOmega, ZTau
-
-SQRT_TAU_MINUS_2 = ZOmega(-1, 2, -1, 1)
+from exact_synthesis.rings import ZOmega, ZTau, SQRT_TAU_MINUS_2
 
 
-def _fibonacci(n: int) -> int:
+def fibonacci(n: int) -> int:
   if n >= 0:
     a, b = 0, 1
     for _ in range(n):
       a, b = b, a + b
     return a
   k = -n
-  fk = _fibonacci(k)
+  fk = fibonacci(k)
   return fk if k % 2 == 1 else -fk
 
 
 def approx_real(x, n: int) -> ZTau:
   x = mp.mpf(x)
 
-  p = _fibonacci(n)
-  q = _fibonacci(n + 1)
-  u = (-1) ** (n + 1) * _fibonacci(n)
-  v = (-1) ** n * _fibonacci(n - 1)
+  p = fibonacci(n)
+  q = fibonacci(n + 1)
+  u = (-1) ** (n + 1) * fibonacci(n)
+  v = (-1) ** n * fibonacci(n - 1)
   assert u * p + v * q == 1, "Invariant invalid"
 
   if q == 0:
@@ -61,7 +59,9 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
   y_max = r * phi**m * (sin_t + epsilon * (sqrt4_eps2 * cos_t - epsilon * sin_t) / 2)
 
   x_max = r * phi**m * ((1 - epsilon**2 / 2) * cos_t - epsilon * mp.sqrt(1 - epsilon**2 / 4) * sin_t)
-  x_c = x_max - (r * epsilon**2 * phi**m / (4 * cos_t))
+  # x_c = x_max - (r * epsilon**2 * phi**m / (4 * cos_t))
+  # here we also break from the paper, i believe this is the correct expression for x_c
+  x_c = x_max + (y_max - y_min) * mp.tan(theta) + r * epsilon**2 * phi**m / (4 * cos_t)
 
   j = random.randint(1, N - 1)
   y = y_min + j * (y_max - y_min) / N
@@ -70,23 +70,12 @@ def random_sample(theta, epsilon, r=1) -> ZOmega:
 
   ay_by = approx_real(y / sqrt_2_minus_tau, m)
 
-  x = x_c - ((ay_by.evaluate()) * sqrt_2_minus_tau - y_min) * mp.tan(theta)
-
-  # assert x < x_max
-  #print(y_min)
-  #print(ay_by.evaluate())
-  assert abs(y - ay_by.evaluate())*sqrt_2_minus_tau <= (y_max - y_min)/2*N
-  # assert y_min < ay_by < y_max # So this does not compute
-  # By
+  x = x_c - (y - y_min) * mp.tan(theta)
 
   ax_bx = approx_real(x, m)
-
- # assert (ax_bx.evaluate() - (x_c - (ay_by.evaluate() - y_min) * sin_t)) <= phi**m * r * epsilon**2 / 4
 
   real_part = ax_bx.to_cycl()
   imag_part = SQRT_TAU_MINUS_2 * ay_by.to_cycl()
 
   result = real_part + imag_part
-  assert y_min < imag_part.evaluate().imag < y_max
-  #assert ax_bx.evaluate() < x_max
   return result

@@ -1,15 +1,8 @@
 import numpy as np
+from exact_synthesis.exactUnitary import ExactUnitary
 import mpmath
-
-
-SQRT_5 = mpmath.mp.sqrt(5)
-TAU = (SQRT_5 - 1) / 2
-PHI = (SQRT_5 - 1) / 2 + 1
-
-
-class CONSTANTS:
-  PHI = PHI
-  TAU = TAU
+from mpmath import mpf
+from typing import Any
 
 
 def haar_random_su2():  # TODO: check
@@ -21,101 +14,45 @@ def haar_random_su2():  # TODO: check
   return np.array([[a + 1j * b, c + 1j * d], [-c + 1j * d, a - 1j * b]])
 
 
-def qr_random_su2():
-  A = np.random.randn(2, 2) + 1j * np.random.randn(2, 2)
-  return np.linalg.qr(A)[0]
+def d_z(U: ExactUnitary, phi: Any) -> Any:
+  phi = mpmath.mpf(phi)
+  u = U.u.evaluate()
+
+  rotated = u * mpmath.exp(1j * phi / 2)
+
+  return mpmath.sqrt(max(mpmath.mpf(0), 1 - abs(mpmath.re(rotated))))
 
 
-def phase(z):
-  return np.angle(z)
+def d_zx(U: ExactUnitary, phi: Any) -> Any:
+  tau = (mpmath.sqrt(5) - 1) / 2
+
+  phi = mpmath.mpf(phi)
+  v = U.v.evaluate()
+  inner = abs(mpmath.re(v * mpmath.exp(-1j * (phi / 2 + mpmath.pi / 2))))
+  return mpmath.sqrt(1 - mpmath.sqrt(tau) * inner)
 
 
-def mag(z):
-  return np.abs(z)
+def d_trace(U, V):
+  if isinstance(U, ExactUnitary):
+    U = U.to_matrix()
+  if isinstance(V, ExactUnitary):
+    V = V.to_matrix()
+  tr = sum(U[i, j] * mpmath.conj(V[i, j]) for i in range(2) for j in range(2))
+  return mpmath.sqrt(max(mpf(0), 1 - abs(tr) / 2))
 
 
-def cis(theta):
-  return np.cos(theta) + 1j * np.sin(theta)
+def rz_mp(theta):
+  theta = mpmath.mpf(float(theta))
+  return mpmath.diag([mpmath.exp(-1j * theta / 2), mpmath.exp(1j * theta / 2)])
 
 
-def adj(z):
-  return np.conj(z)
+def d_operator(U: ExactUnitary, V: ExactUnitary) -> Any:
+  U_mat = U.to_matrix()
+  V_mat = V.to_matrix()
 
+  product = U_mat.H * V_mat
+  trace = product[0, 0] + product[1, 1]
 
-def euler_angles(U: np.ndarray) -> tuple[float, float, float, float]:
-  a, b = U[0, 0], U[0, 1]
-  c, d = U[1, 0], U[1, 1]
+  fidelity = min(mpmath.mpf(1), abs(trace) / 2)
 
-  det = np.linalg.det(U)
-  alpha = np.angle(det) / 2
-
-  gamma = 2 * np.arctan2(mag(b), mag(a))
-
-  i = 1j
-
-  delta = phase(b * d * i * adj(det))
-
-  beta = 2 * phase(d * cis(-alpha - delta / 2) + c * cis(-alpha + delta / 2) * i)
-
-  return (alpha, beta, gamma, delta)
-
-
-def matrix_of_euler_angles(angles: tuple) -> np.ndarray:
-  alpha, beta, gamma, delta = angles
-
-  hadamard = Gates.H
-
-  def zrot(gamma):
-    return np.array([[cis(-gamma / 2), 0], [0, cis(gamma / 2)]], dtype=complex)
-
-  opa = cis(alpha) * np.identity(2, dtype=complex)
-  opb = zrot(beta)
-  opc = hadamard @ zrot(gamma) @ hadamard
-  opd = zrot(delta)
-
-  op = opa @ opb @ opc @ opd
-  return op
-
-
-def is_Rz(U: np.ndarray, tol: float = 1e-10) -> tuple[bool, float | None]:
-  if U.shape != (2, 2):
-    return False, None
-  if not np.allclose(U, np.diag(np.diag(U)), atol=tol):
-    return False, None
-  d0, d1 = np.diag(U)
-  if not np.allclose(U.conj().T @ U, np.eye(2), atol=tol):
-    return False, None
-  if not np.allclose(d1, np.conj(d0), atol=tol):
-    return False, None
-  theta = -2 * np.angle(d0)
-  return True, theta
-
-
-def trace_norm(U: np.ndarray, V: np.ndarray) -> float:
-  trace = np.abs(np.trace(U @ V.conj().T))
-  print("Trace: ", trace)
-  return np.sqrt(1 - trace / 2)
-
-
-class Gates:
-  """
-  Collection of common quantum gates.
-  """
-
-  X = np.array([[0.0, 1.0], [1.0, 0.0]])
-  Y = np.array([[0.0, -1.0j], [1.0j, 0.0]])
-  Z = np.array([[1.0, 0.0], [0.0, -1.0]])
-
-  H = np.array([[1.0, 1.0], [1.0, -1.0]]) / np.sqrt(2)
-
-  S = np.array([[1.0, 0.0], [0.0, 1.0j]])
-
-  T = np.array([[1.0, 0.0], [0.0, np.sqrt(1j)]])
-
-  swap = np.identity(4)[[0, 2, 1, 3]]
-
-  CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
-
-  @staticmethod
-  def Rz(theta):
-    return np.array([[np.exp(-1j * theta / 2), 0], [0, np.exp(1j * theta / 2)]], dtype=np.complex256)
+  return mpmath.sqrt(2 - 2 * fidelity)

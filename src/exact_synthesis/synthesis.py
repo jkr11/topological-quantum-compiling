@@ -6,6 +6,7 @@ from exact_synthesis.exactUnitary import ExactUnitary
 from exact_synthesis.rings import ZOmega, ZTau, N_i
 from exact_synthesis.numberTheory import easy_factor, easy_solvable, solve_norm_equation
 from exact_synthesis.prec import random_sample
+from exact_synthesis.util import d_z, d_trace
 
 import numpy as np  # or get rid of numpy instead
 import cmath  # get rid of this for phase? but its not an extra dep so w/e.
@@ -37,22 +38,35 @@ def exact_synthesize(U: ExactUnitary) -> list[Gate]:
   Ur = U
   gates: list[Gate] = []
 
-  while (g := Ur.gauss_complexity() > 2):
+  while (g := Ur.gauss_complexity()) > 2:
     J, Ur = min(
       ((j, _FT_power_table[j] * Ur) for j in range(1, 11)),
       key=lambda c: c[1].gauss_complexity(),
     )
-    #if Ur.gauss_complexity() >= g:
-    #  raise ValueError(f"Complexity is not decreasing: {g}")
+    if Ur.gauss_complexity() >= g:
+      raise ValueError(f"Complexity is not decreasing: {g}")
     gates += [TGate((10 - J) % 10), FGate(1)]
-
 
   k, j = _omega_k_T_j_table[Ur]
   if j:
     gates.append(TGate(j))
   if k:
     gates.append(WIGate(k))
-  return gates[::-1]
+  return gates
+
+
+def evaluate_gate_sequence(gates: list[Gate]) -> ExactUnitary:
+  U = ExactUnitary.I()
+  for gate in gates:
+    if isinstance(gate, TGate):
+      U = U * ExactUnitary.T() ** gate.power
+    elif isinstance(gate, FGate):
+      U = U * ExactUnitary.F()
+    elif isinstance(gate, WIGate):
+      U = U * ExactUnitary.I().omega_mul(gate.power)
+    else:
+      raise ValueError(f"Unknown gate type: {gate}")
+  return U
 
 
 def _find_theta_k(base_angle, k_range=range(-11, 11)):
@@ -82,7 +96,9 @@ def synthesize_z_rotation(phi, epsilon) -> ExactUnitary:
     if easy_solvable(fl):
       u = (ZOmega.Omega() ** (k % 10)) * (ZOmega.Tau() ** m) * u0
       v = (ZOmega.Tau() ** m) * solve_norm_equation(xi)
-      return ExactUnitary(u, v, 0)
+      res = ExactUnitary(u, v, 5)
+      assert d_z(res, phi) <= epsilon
+      return res  # return ExactUnitary(u, v, 0)
 
 
 def synthesize_zx_rotation(phi, epsilon) -> ExactUnitary:
@@ -105,42 +121,6 @@ def synthesize_zx_rotation(phi, epsilon) -> ExactUnitary:
       v = (ZOmega.Omega() ** (k % 10)) * (ZOmega.Tau() ** m) * u0
       u = (ZOmega.Tau() ** m) * solve_norm_equation(xi)
       return ExactUnitary(u, v, 0)
-
-
-def evaluate_gate_sequence(gates: list[Gate]) -> ExactUnitary:
-  U = ExactUnitary.I()
-  for gate in gates:
-    if isinstance(gate, TGate):
-      U = U * ExactUnitary.T() ** gate.power
-    elif isinstance(gate, FGate):
-      U = U * ExactUnitary.F()
-    elif isinstance(gate, WIGate):
-      U = U * ExactUnitary.I().omega_mul(gate.power)
-    else:
-      raise ValueError(f"Unknown gate type: {gate}")
-  return U
-
-
-def d_z(phi, U: ExactUnitary):
-  phi = mpmath.mpf(phi)
-  z = mpmath.mpc(U.u.evaluate()) * mpmath.exp(1j * phi / 2)
-  x = mpmath.fabs(mpmath.re(z))
-  if x > 0.999999:
-    return mpmath.sqrt(2 * (1 - x))  # Do we have to?
-  return mpmath.sqrt(1 - x)
-
-
-def d_zx(phi, U: ExactUnitary):
-  phi = mpmath.mpf(phi)
-  TAU = (mpmath.sqrt(5) - 1) / 2
-  z = U.v.evaluate() * mpmath.exp(-1j * (phi / 2 + mpmath.pi / 2))
-  return mpmath.sqrt(1 - mpmath.sqrt(TAU) * abs(z.real))
-
-
-def operator_distance(U: np.ndarray, V: np.ndarray) -> float:
-  tr = np.trace(U.conj().T @ V)
-  x = np.clip(np.abs(tr) / 2, 0.0, 1.0)
-  return 2.0 * np.sqrt(1.0 - x**2)
 
 
 def decompose(U: np.ndarray):
@@ -175,35 +155,29 @@ def decompose(U: np.ndarray):
   return {"type": "Z", "delta": global_phase, "alpha": phase_plus + phase_minus, "beta": beta, "gamma": phase_plus - phase_minus}
 
 
+def reconstruct_decomposition(decomp):
+  alpha = decomp["alpha"]
+  beta = decomp["beta"]
+  gamma = decomp["gamma"]
+
+  def Rz(theta):
+    return np.diag([np.exp(-1j * theta / 2), np.exp(1j * theta / 2)])
+
+  F = ExactUnitary.F().to_numpy()
+
+  return np.exp(1j * decomp["delta"]) * Rz(alpha) @ F @ Rz(beta) @ F @ Rz(gamma)
+
+
 def synthesize_unitary(target_matrix: np.ndarray, epsilon) -> ExactUnitary:
   decomp = decompose(target_matrix)
+  assert np.allclose(target_matrix, reconstruct_decomposition(decomp))
   if decomp["type"] == "X":
     return synthesize_zx_rotation(decomp["phi"], epsilon)
   elif decomp["type"] == "Z":
-    Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon)
+    Ralpha = synthesize_z_rotation(decomp["alpha"], epsilon / 3)
     print("alpha: ", decomp["alpha"])
-    # assert d_z(decomp["alpha"], Ralpha) <= mpmath.sqrt(epsilon/3), f"Accuracy false: {d_z(decomp["alpha"], Ralpha)} vs {mpmath.sqrt(epsilon/3)}"
-    Rbeta = synthesize_z_rotation(decomp["beta"], epsilon)
-    Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon)
-    # return exact_synthesize(Ralpha) + [FGate()] + exact_synthesize(Rbeta) + [FGate()] + exact_synthesize(Rgamma)
+    Rbeta = synthesize_z_rotation(decomp["beta"], epsilon / 3)
+    Rgamma = synthesize_z_rotation(decomp["gamma"], epsilon / 3)
     return Ralpha * ExactUnitary.F() * Rbeta * ExactUnitary.F() * Rgamma
   else:
     raise NotImplementedError("Unknown decomposition")
-
-
-def Z(theta: float) -> np.ndarray:
-  return np.array([[np.exp(-1j * theta / 2), 0], [0, np.exp(1j * theta / 2)]], dtype=complex)
-
-
-def F() -> np.ndarray:
-  tau = (np.sqrt(5) - 1) / 2
-  return np.array([[tau, np.sqrt(tau)], [np.sqrt(tau), -tau]], dtype=complex)
-
-
-if __name__ == "__main__":
-  import random
-  import mpmath
-
-  mpmath.mp.dps = 400
-  
-  

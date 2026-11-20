@@ -3,23 +3,6 @@ import random
 from exact_synthesis.rings import ZOmega, ZTau, N_tau, N_i
 
 
-def fibonacci(n: int) -> int:
-  assert n >= 0
-  a, b = 0, 1
-  for _ in range(n):
-    a, b = b, a + b
-  return a
-
-
-def extended_fib_coefficients(n: int) -> tuple[int, int]:
-  assert n >= 0
-  Fn = fibonacci(n)
-  Fn_minus_1 = fibonacci(n - 1)
-  u = ((-1) ** (n + 1)) * Fn
-  v = (-1) ** n * Fn_minus_1
-  return u, v
-
-
 def is_square(n: int) -> int | None:
   if n < 0:
     return None
@@ -30,40 +13,39 @@ def is_square(n: int) -> int | None:
 
 
 def is_prime(p: int) -> bool:
+  def miller_rabin(n: int, k: int = 7) -> bool:
+    """
+    k is number of accuracy rounds.
+    """
+    if n < 2:
+      return False
+
+    small_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23]
+    for sp in small_primes:
+      if n == sp:
+        return True
+      if n % sp == 0 and n != sp:
+        return False
+
+    r, d = 0, n - 1
+    while d % 2 == 0:
+      d >>= 1
+      r += 1
+
+    for _ in range(k):
+      a = random.randrange(2, n - 1)
+      x = pow(a, d, n)
+      if x == 1 or x == n - 1:
+        continue
+      for __ in range(r - 1):
+        x = pow(x, 2, n)
+        if x == n - 1:
+          break
+      else:
+        return False
+    return True
+
   return miller_rabin(p)
-
-
-def miller_rabin(n: int, k: int = 7) -> bool:
-  """
-  k is number of accuracy rounds.
-  """
-  if n < 2:
-    return False
-
-  small_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23]
-  for sp in small_primes:
-    if n == sp:
-      return True
-    if n % sp == 0 and n != sp:
-      return False
-
-  r, d = 0, n - 1
-  while d % 2 == 0:
-    d >>= 1
-    r += 1
-
-  for _ in range(k):
-    a = random.randrange(2, n - 1)
-    x = pow(a, d, n)
-    if x == 1 or x == n - 1:
-      continue
-    for __ in range(r - 1):
-      x = pow(x, 2, n)
-      if x == n - 1:
-        break
-    else:
-      return False
-  return True
 
 
 def easy_solvable(fl: list[tuple[ZTau, int]]) -> bool:
@@ -96,8 +78,8 @@ def easy_factor(xi: ZTau) -> list[tuple[ZTau, int]]:
     if d is not None:
       ret = [(ZTau(d, 0), 2), (ZTau(5, 0), 1)]
     else:
-      # this means unsolvable
-      return [(xi1, 1)]
+      # this means unsolvable Here we also differe from the paper, see blog post.
+      return [(ZTau(c, 0), 1), (xi1, 1)]
   n = N_tau(xi1)
   if n % 5 == 0:
     xi2 = xi1.div_by_two_minus_tau()
@@ -160,6 +142,8 @@ def unit_dlog(u: ZTau) -> tuple[int, int]:
       k += 2
     case _:
       pass
+
+  assert u == ZTau(s, 0) * (ZTau.Tau() ** k)
   return (s, k)
 
 
@@ -284,10 +268,15 @@ def solve_norm_equation(xi: ZTau) -> ZOmega:
           s, m = unit_dlog(u)
           assert s == 1 and m % 2 == 0, "Unit DLOG failed for unit: " + str(u)
           x = x * (ZOmega.Tau() ** (m // 2)) * y
+
+  assert N_i(x) == xi, f"Failed to solve norm equation diff = {N_i(x) - xi} \n xi={xi} \n x ={x}"
   return x
 
 
 def solve_norm_equation_alt(xi: ZTau) -> ZOmega:
+  """
+  This is an alternative formulation of :func:`solve_norm_equation` give in V. Kliuchnikovs thesis (look this up)
+  """
   if not easy_solvable(easy_factor(xi)):
     raise ValueError(f"{xi} is not EASY-SOLVABLE.")
 
@@ -315,7 +304,9 @@ def solve_norm_equation_alt(xi: ZTau) -> ZOmega:
 
   return (ZOmega.Tau() ** (m // 2)) * (sqrt_tau_minus_two**n) * xr
 
+
 if __name__ == "__main__":
+  # Test as in the paper
   test = ZTau(15, -8)
   print("SND: ", ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega() ** 4))
   cand = ZOmega.from_int(63) - (ZOmega.Omega() + ZOmega.Omega() ** 4)

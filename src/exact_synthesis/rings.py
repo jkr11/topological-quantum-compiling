@@ -188,7 +188,7 @@ class ZOmega:
   def to_subring(self):
     a, b, c, d = self.coeffs()
     assert b == 0 and c == -d, f"Tau is not represented in {self}"
-    return ZTau(a,c)
+    return ZTau(a, c)
 
   def gauss_complexity(self):
     u1 = N_i(self)
@@ -200,13 +200,7 @@ class ZOmega:
 
   def __add__(self, other: ZOmega) -> ZOmega:
     if isinstance(other, ZOmega):
-      a, b = self.coeffs(), other.coeffs()
-      return ZOmega(
-        a[0] + b[0],
-        a[1] + b[1],
-        a[2] + b[2],
-        a[3] + b[3],
-      )
+      return ZOmega(*(a + b for a, b in zip(self.coeffs(), other.coeffs())))
     elif isinstance(other, int):
       a, b, c, d = self.coeffs()
       return ZOmega(a + other, b, c, d)
@@ -367,7 +361,7 @@ class ZTau:
         return f"{self.a} - τ"
       return f"{self.a} - {-self.b}τ"
 
-  def __divmod__(self, other) -> tuple[ZTau, ZTau]:
+  def __divmod__(self, other: ZTau | int) -> tuple[ZTau, ZTau]:
     if isinstance(other, int):
       other = ZTau.from_int(other)
     if not isinstance(other, ZTau):
@@ -409,6 +403,9 @@ def gauss_complexity_measure(eta: ZOmega) -> int:
   N_i(eta) + N_i(eta^aut) evaluates to a ZTau, but since this equation is idempotent over autimorphisms, we can just cast to int.
   """
   return (N_i(eta) + N_i(eta).automorphism()).to_int()
+
+
+SQRT_TAU_MINUS_2 = ZOmega(-1, 2, -1, 1)
 
 
 if __name__ == "__main__":
